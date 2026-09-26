@@ -2,8 +2,8 @@
 import * as idb from '../db/idb.js';
 import * as UI from '../core/ui.js';
 import { esc, fmtNum, fmtQty, fmtTime, today, round2 } from '../core/utils.js';
-import { money } from '../core/views.js';
-import { pref } from '../core/settings.js';
+import { money, expiryBadge, expiryDays } from '../core/views.js';
+import { pref, getSettings } from '../core/settings.js';
 import * as Auth from '../services/auth.js';
 import * as Catalog from '../services/catalog.js';
 import * as Posting from '../services/posting.js';
@@ -37,7 +37,12 @@ export default {
     this.destroy();
     const $el = $(el);
     const u = Auth.user();
-    const [f, bal] = await Promise.all([todayFigures(), Posting.allBalances()]);
+    const [f, bal, aging] = await Promise.all([todayFigures(), Posting.allBalances(), Posting.customerAging()]);
+    let overdue = 0; let overdueCount = 0;
+    for (const a of aging.values()) if (a.overdue > 0.004) { overdue += a.overdue; overdueCount++; }
+    const nearDays = Number(getSettings().nearExpiryDays || 0);
+    const expBatches = Catalog.allBatches().filter((b) => b.qty > 0 && b.expiry && expiryDays(b.expiry) <= nearDays).sort((a, b) => a.expiry.localeCompare(b.expiry));
+    const expiredN = expBatches.filter((b) => expiryDays(b.expiry) < 0).length;
     let rec = 0; let pay = 0;
     for (const [id, b] of bal) { if (id.startsWith('C:') && b.balance > 0) rec += b.balance; if (id.startsWith('S:') && b.balance < 0) pay -= b.balance; }
     const prods = Catalog.allProducts().filter((p) => p.active && p.trackStock !== false);
@@ -55,8 +60,9 @@ export default {
       <div class="row g-2 mb-3">
         ${qa('#/pos', 'cart-plus', 'New sale', 'sale.create')}${qa('#/purchase/new', 'bag-plus', 'Purchase', 'purchase.manage')}
         ${qa('#/vouchers', 'cash-coin', 'Cash book', 'voucher.create')}${qa('#/customers', 'people', 'Customers')}
-        ${qa('#/products', 'box-seam', 'Products')}${qa('#/reports', 'bar-chart-line', 'Reports', 'reports.view')}
+        ${qa('#/whatsapp', 'whatsapp', 'WhatsApp')}${qa('#/reports', 'bar-chart-line', 'Reports', 'reports.view')}
       </div>
+      ${expiredN ? `<div class="alert alert-danger py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-octagon"></i><div class="flex-grow-1">${expiredN} batch(es) in stock have expired. They are blocked from sale — return them to the supplier or write them off.</div><a class="btn btn-sm btn-danger" href="#/expiry?f=expired">Review</a></div>` : ''}
       <h2 class="h6 text-body-secondary">Today</h2>
       <div class="row g-2 mb-3">
         ${stat('Sales', money(f.sales), 'receipt', 'primary', '#/sales')}
@@ -72,9 +78,13 @@ export default {
         ${Auth.can('purchase.manage') ? stat('Payables', money(pay), 'truck', 'danger', Auth.can('reports.view') ? '#/reports/payables' : null) : ''}
         ${stat('Stock value', money(stockValue), 'boxes', 'primary', '#/stock')}
         ${stat('Low stock items', low.length, 'exclamation-triangle', low.length ? 'danger' : 'success', '#/stock')}
+        ${stat('Overdue credit', `${money(overdue)} <span class="small text-body-secondary">(${overdueCount})</span>`, 'bell', overdue ? 'danger' : 'success', '#/whatsapp/reminders')}
+        ${stat('Expired batches', expiredN, 'x-octagon', expiredN ? 'danger' : 'success', '#/expiry?f=expired')}
+        ${stat(`Expiring ≤ ${nearDays} days`, expBatches.length - expiredN, 'hourglass-split', expBatches.length - expiredN ? 'warning' : 'success', '#/expiry')}
       </div>
       <div class="row g-3">
         <div class="col-md-6"><h2 class="h6 text-body-secondary">Recent sales</h2><div class="list-card">${f.recent.map((s) => `<a class="list-row" href="#/sales/${encodeURIComponent(s.id)}"><div class="main"><div class="title">${esc(s.number)}</div><div class="sub">${esc(s.customerName)} · ${fmtTime(s.createdAt)}</div></div><div class="end fw-semibold money">${fmtNum(s.total)}</div></a>`).join('') || UI.emptyState('No sales yet today', 'receipt')}</div></div>
+        <div class="col-md-6"><h2 class="h6 text-body-secondary">Expiring soon <span class="small fw-normal">— sold first automatically</span></h2><div class="list-card">${expBatches.slice(0, 6).map((b) => { const p = Catalog.product(b.productId); return p ? `<a class="list-row" href="#/stock/${encodeURIComponent(p.id)}"><div class="main"><div class="title">${esc(p.name)}</div><div class="sub">Batch ${esc(b.batchNo)} · ${fmtQty(b.qty)} ${esc(p.unit)}</div></div><div class="end">${expiryBadge(b.expiry, { short: true })}</div></a>` : ''; }).join('') || UI.emptyState(`Nothing expires within ${nearDays} days`, 'check-circle')}</div></div>
         <div class="col-md-6"><h2 class="h6 text-body-secondary">Low stock</h2><div class="list-card">${low.slice(0, 6).map((p) => `<a class="list-row" href="#/stock/${encodeURIComponent(p.id)}"><div class="main"><div class="title">${esc(p.name)}</div><div class="sub">Min ${fmtQty(p.minStock || 0)}</div></div><div class="end"><span class="badge ${p.stock <= 0 ? 'text-bg-danger' : 'text-bg-warning'}">${fmtQty(p.stock)} ${esc(p.unit)}</span></div></a>`).join('') || UI.emptyState('All stock levels are fine', 'check-circle')}</div></div>
       </div>`);
     const refresh = () => { if (location.hash === '' || location.hash.startsWith('#/dashboard')) this.render(el); };

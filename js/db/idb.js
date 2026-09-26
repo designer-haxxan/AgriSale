@@ -8,7 +8,7 @@ export function openDB() {
   dbPromise = new Promise((resolve, reject) => {
     if (!('indexedDB' in window)) return reject(new Error('IndexedDB is not supported in this browser.'));
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => upgrade(req.result, e.oldVersion, req.transaction);
+    req.onupgradeneeded = (e) => upgrade(req.result, e.oldVersion, req.transaction, wrap(req.transaction));
     req.onsuccess = () => {
       const db = req.result;
       db.onversionchange = () => { db.close(); dbPromise = null; location.reload(); };
@@ -24,7 +24,7 @@ const promisify = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.r
 
 // Wraps an IDBTransaction. Only await these request promises inside tx() callbacks,
 // otherwise the browser auto-commits the transaction.
-function wrap(t) {
+export function wrap(t) {
   const s = (name) => t.objectStore(name);
   return {
     raw: t,

@@ -2,10 +2,11 @@
 // document, its lines, stock movements, double-entry ledger entries, the number counter and the audit
 // record together. If any step fails the whole transaction aborts, leaving no partial data behind.
 import * as idb from '../db/idb.js';
-import { uuid, round2, round3, num, nowISO, today, AppError, clean, lc, fmtQty } from '../core/utils.js';
+import { uuid, round2, round3, num, nowISO, today, localDate, AppError, clean, lc, fmtQty } from '../core/utils.js';
 import { getSettings } from '../core/settings.js';
 import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
+import { openingBatchId, openingBatch, normalizeBatches } from '../db/batches.js';
 
 const EPS = 0.0005;
 const NUMBER_STORE = {
@@ -57,16 +58,93 @@ async function addEntries(t, doc, refType, lines) {
   for (const e of mkEntries(doc, refType, lines)) await t.add('entries', e);
 }
 
-async function moveStock(t, ctx, { productId, qty, type, doc, cost, note = '' }) {
+// ---------- batches & expiry ----------
+const NO_EXPIRY = '9999-12-31';
+const fefoCmp = (a, b) => (a.expiry || NO_EXPIRY).localeCompare(b.expiry || NO_EXPIRY) || (a.createdAt || '').localeCompare(b.createdAt || '');
+// First-Expiry-First-Out order: earliest expiry first, batches without expiry last.
+export const fefoSort = (list) => [...list].sort(fefoCmp);
+export const isExpired = (b, on = today()) => !!b?.expiry && b.expiry < on;
+export function daysToExpiry(b, on = today()) {
+  if (!b?.expiry) return null;
+  return Math.round((new Date(b.expiry + 'T00:00:00') - new Date(on + 'T00:00:00')) / 86400000);
+}
+const isDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+
+async function ensureOpeningBatch(t, p) {
+  const b = await t.get('batches', openingBatchId(p.id));
+  if (b) return b;
+  const nb = openingBatch(p, nowISO());
+  await t.put('batches', nb);
+  return nb;
+}
+
+// Finds (or creates) the batch a purchase / stock-in line goes into. Same product + batch no + expiry → same batch.
+async function inboundBatch(t, p, { batchNo, expiry, mfgDate, cost, doc }) {
+  expiry = expiry || ''; mfgDate = mfgDate || '';
+  if (expiry && !isDate(expiry)) throw new AppError(`Invalid expiry date for "${p.name}".`);
+  if (mfgDate && !isDate(mfgDate)) throw new AppError(`Invalid manufacturing date for "${p.name}".`);
+  if (expiry && mfgDate && mfgDate > expiry) throw new AppError(`Manufacturing date is after the expiry date for "${p.name}".`);
+  const no = clean(batchNo, 40) || doc.number;
+  const now = nowISO();
+  const same = (await t.getAllByIndex('batches', 'productId', p.id))
+    .find((b) => b.id !== openingBatchId(p.id) && b.batchNoLc === lc(no) && (b.expiry || '') === expiry);
+  if (same) {
+    same.cost = round2(cost ?? same.cost); if (mfgDate) same.mfgDate = mfgDate; same.updatedAt = now;
+    await t.put('batches', same);
+    return same;
+  }
+  const b = { id: uuid(), productId: p.id, batchNo: no, batchNoLc: lc(no), expiry, mfgDate, cost: round2(cost ?? p.purchasePrice ?? 0), qty: 0,
+    refId: doc.id, refNo: doc.number, createdAt: now, updatedAt: now };
+  await t.add('batches', b);
+  return b;
+}
+
+// Chooses batches for an outgoing quantity: the batch picked by the user, otherwise First-Expiry-First-Out.
+// Expired batches are skipped (or rejected when picked) unless expired sales are allowed.
+async function allocate(t, p, qty, { batchId = null, date = today(), allowExpired = getSettings().allowExpiredSale } = {}) {
+  if (p.trackStock === false) return [];
+  if (batchId) {
+    const b = await t.get('batches', batchId);
+    if (!b || b.productId !== p.id) throw new AppError(`The selected batch of "${p.name}" no longer exists.`);
+    if (isExpired(b, date) && !allowExpired) throw new AppError(`Batch ${b.batchNo} of "${p.name}" expired on ${b.expiry} and cannot be sold.`);
+    return [{ batch: b, qty }];
+  }
+  const out = []; let left = qty; let expiredQty = 0;
+  for (const b of fefoSort((await t.getAllByIndex('batches', 'productId', p.id)).filter((x) => x.qty > EPS))) {
+    if (left <= EPS) break;
+    if (isExpired(b, date) && !allowExpired) { expiredQty = round3(expiredQty + b.qty); continue; }
+    const take = round3(Math.min(left, b.qty));
+    out.push({ batch: b, qty: take }); left = round3(left - take);
+  }
+  if (left > EPS) {
+    if (!getSettings().allowNegativeStock) {
+      throw new AppError(`Insufficient stock for "${p.name}". Available: ${fmtQty(qty - left)}${expiredQty > EPS ? ` (${fmtQty(expiredQty)} more is expired and cannot be sold)` : ''}`);
+    }
+    const last = out[out.length - 1];
+    if (last) last.qty = round3(last.qty + left); else out.push({ batch: await ensureOpeningBatch(t, p), qty: left });
+  }
+  return out;
+}
+const batchRef = (b, qty, p) => ({ batchId: b.id, batchNo: b.batchNo, expiry: b.expiry || '', qty: round3(qty), cost: round2(b.cost || p.purchasePrice || 0) });
+
+// Moves stock of one product within one batch (the opening batch when none is given).
+async function moveStock(t, ctx, { productId, qty, type, doc, cost, note = '', batchId = null, lineId = null }) {
   const p = await t.get('products', productId);
   if (!p) throw new AppError('Product not found.');
   if (p.trackStock === false) return p;
-  p.stock = round3((p.stock || 0) + qty); p.updatedAt = nowISO();
+  const b = batchId ? await t.get('batches', batchId) : await ensureOpeningBatch(t, p);
+  if (!b || b.productId !== productId) throw new AppError(`Batch not found for "${p.name}".`);
+  const now = nowISO();
+  p.stock = round3((p.stock || 0) + qty); p.updatedAt = now;
   await t.put('products', p);
-  await t.add('stockMoves', { id: uuid(), productId, date: doc.date, qty: round3(qty), type, refId: doc.id, refNo: doc.number, cost: round2(cost ?? p.purchasePrice ?? 0), note, createdAt: nowISO() });
+  b.qty = round3((b.qty || 0) + qty); b.updatedAt = now;
+  await t.put('batches', b);
+  await t.add('stockMoves', { id: uuid(), productId, batchId: b.id, date: doc.date, qty: round3(qty), type, refId: doc.id, refNo: doc.number,
+    cost: round2(cost ?? (b.cost || p.purchasePrice || 0)), note, createdAt: now, ...(lineId ? { lineId } : {}) });
   ctx.touched.add(productId);
-  if (qty < 0 && p.stock < -EPS && !getSettings().allowNegativeStock) {
-    throw new AppError(`Insufficient stock for "${p.name}". Available: ${fmtQty(p.stock - qty)}`);
+  if (qty < 0 && !getSettings().allowNegativeStock) {
+    if (p.stock < -EPS) throw new AppError(`Insufficient stock for "${p.name}". Available: ${fmtQty(p.stock - qty)}`);
+    if (b.qty < -EPS) throw new AppError(`Insufficient stock in batch ${b.batchNo} of "${p.name}". Available: ${fmtQty(b.qty - qty)}`);
   }
   return p;
 }
@@ -82,7 +160,17 @@ async function revertDoc(t, ctx, docId) {
       if (m.qty > 0 && p.stock < -EPS && !allowNeg) throw new AppError(`Cannot reverse: stock of "${p.name}" has already been sold/used.`);
       await t.put('products', p); ctx.touched.add(p.id);
     }
+    const b = m.batchId && await t.get('batches', m.batchId);
+    if (b) {
+      b.qty = round3((b.qty || 0) - m.qty); b.updatedAt = nowISO();
+      if (m.qty > 0 && b.qty < -EPS && !allowNeg) throw new AppError(`Cannot reverse: batch ${b.batchNo} of "${p?.name || 'product'}" has already been sold/used.`);
+      await t.put('batches', b);
+    }
     await t.delete('stockMoves', m.id);
+  }
+  // Batches created by this document that no longer have any movement are removed.
+  for (const b of await t.getAllByIndex('batches', 'refId', docId)) {
+    if (!(await t.countByIndex('stockMoves', 'batchId', b.id))) await t.delete('batches', b.id);
   }
   await t.deleteByIndex('entries', 'txnId', docId);
 }
@@ -125,7 +213,7 @@ export function previewDoc(items, billDiscount, taxRate) {
 }
 
 // ---------- SALES ----------
-const SALE_STORES = ['sales', 'saleItems', 'products', 'stockMoves', 'entries', 'meta', 'customers', 'accounts', 'saleReturns', 'auditLog'];
+const SALE_STORES = ['sales', 'saleItems', 'products', 'batches', 'stockMoves', 'entries', 'meta', 'customers', 'accounts', 'saleReturns', 'auditLog'];
 
 export async function saveSale(input) {
   const editing = !!input.editId;
@@ -139,6 +227,7 @@ export async function saveSale(input) {
   if (tendered < 0) throw new AppError('Paid amount cannot be negative.');
   const paid = round2(Math.min(tendered, calc.total));
   if (!customerId && paid < calc.total - 0.001) throw new AppError('Walk-in sales must be fully paid. Select a customer to sell on credit.');
+  const dueDate = paid < calc.total - 0.001 && isDate(input.dueDate) ? input.dueDate : '';
   const ctx = newCtx();
 
   const sale = await idb.write(SALE_STORES, async (t) => {
@@ -166,7 +255,7 @@ export async function saveSale(input) {
       subtotal: calc.subtotal, discount: calc.discount, taxRate: calc.taxRate, tax: calc.tax, total: calc.total,
       tendered, paid, change: round2(Math.max(0, tendered - calc.total)), balance: round2(calc.total - paid),
       paymentAccountId: acc.id, paymentAccountName: acc.name,
-      paymentType: paid >= calc.total ? 'paid' : paid > 0 ? 'partial' : 'credit',
+      paymentType: paid >= calc.total ? 'paid' : paid > 0 ? 'partial' : 'credit', dueDate,
       status: 'completed', note: clean(input.note, 500), edited: editing || !!existing?.edited, ...stamp(),
     };
     await t.put('sales', doc);
@@ -175,10 +264,12 @@ export async function saveSale(input) {
       const p = await t.get('products', l.productId);
       if (!p) throw new AppError('A product in the cart no longer exists.');
       if (!p.active && !editing) throw new AppError(`"${p.name}" is inactive.`);
+      const batches = (await allocate(t, p, l.qty, { batchId: l.batchId || null, date: doc.date })).map((a) => batchRef(a.batch, a.qty, p));
+      const cost = batches.length ? round2(batches.reduce((s, b) => s + b.qty * b.cost, 0) / l.qty) : round2(p.purchasePrice || 0);
       const item = { id: uuid(), saleId: id, saleNo: number, date: doc.date, line: i++, productId: p.id, name: p.name, sku: p.sku || '', unit: p.unit || '',
-        qty: l.qty, rate: l.rate, discount: l.discount, amount: l.amount, cost: round2(p.purchasePrice || 0) };
+        qty: l.qty, rate: l.rate, discount: l.discount, amount: l.amount, cost, batches, pickedBatchId: l.batchId || null };
       await t.add('saleItems', item);
-      await moveStock(t, ctx, { productId: p.id, qty: -l.qty, type: 'sale', doc, cost: item.cost });
+      for (const b of batches) await moveStock(t, ctx, { productId: p.id, qty: -b.qty, type: 'sale', doc, cost: b.cost, batchId: b.batchId, lineId: item.id });
     }
     const net = round2(calc.total - calc.tax);
     const C = customerId && partyAccount('customers', customerId);
@@ -194,7 +285,7 @@ export async function saveSale(input) {
 }
 
 // ---------- PURCHASES ----------
-const PUR_STORES = ['purchases', 'purchaseItems', 'products', 'stockMoves', 'entries', 'meta', 'suppliers', 'accounts', 'purchaseReturns', 'auditLog'];
+const PUR_STORES = ['purchases', 'purchaseItems', 'products', 'batches', 'stockMoves', 'entries', 'meta', 'suppliers', 'accounts', 'purchaseReturns', 'auditLog'];
 
 export async function savePurchase(input) {
   Auth.require('purchase.manage');
@@ -242,9 +333,14 @@ export async function savePurchase(input) {
       const p = await t.get('products', l.productId);
       if (!p) throw new AppError('A product in this purchase no longer exists.');
       const unitCost = round2((l.amount / l.qty) * factor);
-      await t.add('purchaseItems', { id: uuid(), purchaseId: id, purchaseNo: number, date: doc.date, line: i++, productId: p.id, name: p.name, sku: p.sku || '', unit: p.unit || '',
-        qty: l.qty, rate: l.rate, discount: l.discount, amount: l.amount, unitCost });
-      await moveStock(t, ctx, { productId: p.id, qty: l.qty, type: 'purchase', doc, cost: unitCost });
+      const tracked = p.trackStock !== false;
+      if (tracked && p.hasExpiry !== false && !l.expiry) throw new AppError(`Enter the expiry date for "${p.name}".`);
+      const b = tracked ? await inboundBatch(t, p, { batchNo: l.batchNo, expiry: l.expiry, mfgDate: l.mfgDate, cost: unitCost, doc }) : null;
+      const itemId = uuid();
+      await t.add('purchaseItems', { id: itemId, purchaseId: id, purchaseNo: number, date: doc.date, line: i++, productId: p.id, name: p.name, sku: p.sku || '', unit: p.unit || '',
+        qty: l.qty, rate: l.rate, discount: l.discount, amount: l.amount, unitCost,
+        batchId: b?.id || null, batchNo: b?.batchNo || '', expiry: b?.expiry || '', mfgDate: b?.mfgDate || '' });
+      await moveStock(t, ctx, { productId: p.id, qty: l.qty, type: 'purchase', doc, cost: unitCost, batchId: b?.id, lineId: itemId });
       if (s.updatePurchasePrice) {
         const p2 = await t.get('products', p.id);
         p2.purchasePrice = unitCost; p2.updatedAt = nowISO();
@@ -290,13 +386,19 @@ export async function saveReturn(kind, input) {
     ? ['sales', 'saleItems', 'saleReturns', 'saleId', 'customers', 'customerId']
     : ['purchases', 'purchaseItems', 'purchaseReturns', 'purchaseId', 'suppliers', 'supplierId'];
   const ctx = newCtx();
-  const ret = await idb.write([docStore, itemStore, retStore, 'products', 'stockMoves', 'entries', 'meta', 'accounts', 'auditLog'], async (t) => {
+  const ret = await idb.write([docStore, itemStore, retStore, 'products', 'batches', 'stockMoves', 'entries', 'meta', 'accounts', 'auditLog'], async (t) => {
     const existing = await t.get(retStore, input.id);
     if (existing) { ctx.duplicate = true; return existing; }
     const src = await t.get(docStore, input.docId);
     if (!src || src.status === 'void') throw new AppError('Original document not found or voided.');
     const items = await t.getAllByIndex(itemStore, fk, src.id);
     const done = await returnedQtyMap(t, retStore, fk, src.id);
+    // Quantity already returned per line and batch (sale returns go back into the batches they were sold from).
+    const doneBatch = {};
+    for (const r of await t.getAllByIndex(retStore, fk, src.id)) {
+      if (r.status === 'void') continue;
+      for (const it of r.items) for (const b of it.batches || []) { const k = it.lineId + '|' + b.batchId; doneBatch[k] = round3((doneBatch[k] || 0) + b.qty); }
+    }
     const factor = src.subtotal > 0 ? src.total / src.subtotal : 1;
     const lines = [];
     for (const l of input.lines) {
@@ -307,7 +409,23 @@ export async function saveReturn(kind, input) {
       const remaining = round3(it.qty - (done[it.id] || 0));
       if (qty > remaining + EPS) throw new AppError(`Cannot return ${fmtQty(qty)} of "${it.name}" (max ${fmtQty(remaining)}).`);
       const amount = round2(it.amount * factor * qty / it.qty);
-      lines.push({ lineId: it.id, productId: it.productId, name: it.name, unit: it.unit, qty, rate: round2(amount / qty), amount, lineAmount: round2(it.amount * qty / it.qty), cost: isSale ? it.cost : it.unitCost });
+      const p = await t.get('products', it.productId);
+      let batches = [];
+      if (p && p.trackStock !== false) {
+        if (isSale && it.batches?.length) {
+          let left = qty;
+          for (const sb of [...it.batches].reverse()) {
+            const take = round3(Math.min(left, sb.qty - (doneBatch[it.id + '|' + sb.batchId] || 0)));
+            if (take > EPS) { batches.push({ ...sb, qty: take }); left = round3(left - take); }
+            if (left <= EPS) break;
+          }
+          if (left > EPS) batches.push({ batchId: openingBatchId(p.id), batchNo: 'OPENING', expiry: '', qty: left, cost: it.cost });
+        } else {
+          const b = (!isSale && it.batchId) ? await t.get('batches', it.batchId) : null;
+          batches = [b ? batchRef(b, qty, p) : { batchId: openingBatchId(p.id), batchNo: 'OPENING', expiry: '', qty, cost: isSale ? it.cost : it.unitCost }];
+        }
+      }
+      lines.push({ lineId: it.id, productId: it.productId, name: it.name, unit: it.unit, qty, rate: round2(amount / qty), amount, lineAmount: round2(it.amount * qty / it.qty), cost: isSale ? it.cost : it.unitCost, batches });
     }
     if (!lines.length) throw new AppError('Enter a quantity to return.');
     const total = round2(lines.reduce((s, l) => s + l.amount, 0));
@@ -325,7 +443,12 @@ export async function saveReturn(kind, input) {
     };
     await t.add(retStore, doc);
     for (const l of lines) {
-      await moveStock(t, ctx, { productId: l.productId, qty: isSale ? l.qty : -l.qty, type: isSale ? 'sale_return' : 'purchase_return', doc, cost: l.cost });
+      const type = isSale ? 'sale_return' : 'purchase_return';
+      if (!l.batches.length) { await moveStock(t, ctx, { productId: l.productId, qty: isSale ? l.qty : -l.qty, type, doc, cost: l.cost, lineId: l.lineId }); continue; }
+      for (const b of l.batches) {
+        if (b.batchId === openingBatchId(l.productId)) await ensureOpeningBatch(t, await t.get('products', l.productId));
+        await moveStock(t, ctx, { productId: l.productId, qty: isSale ? b.qty : -b.qty, type, doc, cost: isSale ? b.cost : l.cost, batchId: b.batchId, lineId: l.lineId });
+      }
     }
     if (partyId) ctx.parties.push([partyStore, partyId]);
     if (isSale) {
@@ -362,7 +485,7 @@ export async function voidDocument(kind, id, reason = '') {
   const def = VOID_DEF[kind];
   Auth.require(def.perm);
   const ctx = newCtx();
-  const stores = [def.store, 'products', 'stockMoves', 'entries', 'auditLog', ...(def.items ? [def.items, def.returns] : [])];
+  const stores = [def.store, 'products', 'batches', 'stockMoves', 'entries', 'auditLog', ...(def.items ? [def.items, def.returns] : [])];
   const doc = await idb.write(stores, async (t) => {
     const d = await t.get(def.store, id);
     if (!d) throw new AppError('Document not found.');
@@ -452,7 +575,7 @@ export async function saveParty(kind, data) {
   const now = nowISO();
   const rec = await idb.write([kind, 'entries', 'auditLog'], async (t) => {
     const old = data.id ? await t.get(kind, id) : null;
-    const r = { ...(old || { createdAt: now }), id, name, nameLc: lc(name), phone: clean(data.phone, 40), email, address: clean(data.address, 300),
+    const r = { ...(old || { createdAt: now }), id, name, nameLc: lc(name), phone: clean(data.phone, 40), whatsapp: clean(data.whatsapp, 40), email, address: clean(data.address, 300),
       note: clean(data.note, 500), openingBalance: opening, openingDate: data.openingDate || old?.openingDate || today(), active: data.active === false ? 0 : 1, updatedAt: now };
     await t.put(kind, r);
     const acc = partyAccount(kind, id);
@@ -561,8 +684,10 @@ export async function saveProduct(data) {
   const wholesalePrice = round2(num(data.wholesalePrice));
   if (salePrice < 0 || purchasePrice < 0 || wholesalePrice < 0) throw new AppError('Prices cannot be negative.');
   const openingStock = round3(num(data.openingStock));
+  const openingExpiry = data.openingExpiry || '';
+  if (openingExpiry && !isDate(openingExpiry)) throw new AppError('Invalid opening stock expiry date.');
   const ctx = newCtx();
-  const rec = await idb.write(['products', 'stockMoves', 'auditLog'], async (t) => {
+  const rec = await idb.write(['products', 'batches', 'stockMoves', 'auditLog'], async (t) => {
     if (barcode) {
       const dup = (await t.getAllByIndex('products', 'barcode', barcode)).find((p) => p.id !== id);
       if (dup) throw new AppError(`Barcode already used by "${dup.name}".`);
@@ -577,6 +702,8 @@ export async function saveProduct(data) {
     const trackStock = data.trackStock !== false;
     const p = { ...(old || { createdAt: now, stock: 0 }), id, name, nameLc: lc(name), sku, barcode, categoryId: data.categoryId || '', unit: clean(data.unit, 20) || 'pcs',
       purchasePrice, salePrice, wholesalePrice, minStock: round3(num(data.minStock)), openingStock: trackStock ? openingStock : 0, trackStock,
+      hasExpiry: trackStock && data.hasExpiry !== false, company: clean(data.company, 80), activeIngredient: clean(data.activeIngredient, 150),
+      packSize: clean(data.packSize, 40), regNo: clean(data.regNo, 60),
       image: data.image === undefined ? (old?.image || '') : data.image, active: data.active === false ? 0 : 1, updatedAt: now };
     const openRef = 'open:' + id;
     const [openMove] = await t.getAllByIndex('stockMoves', 'refId', openRef);
@@ -584,9 +711,17 @@ export async function saveProduct(data) {
     const delta = round3(newOpening - (openMove?.qty || 0));
     p.stock = round3((p.stock || 0) + delta);
     await t.put('products', p);
+    let ob = await t.get('batches', openingBatchId(id));
+    if (newOpening || ob) {
+      ob = ob || openingBatch(p, now);
+      const no = clean(data.openingBatchNo, 40) || ob.batchNo || 'OPENING';
+      Object.assign(ob, { batchNo: no, batchNoLc: lc(no), expiry: data.openingExpiry === undefined ? ob.expiry : openingExpiry,
+        cost: purchasePrice || ob.cost, qty: round3((ob.qty || 0) + delta), updatedAt: now });
+      await t.put('batches', ob);
+    }
     if (openMove) await t.delete('stockMoves', openMove.id);
     if (newOpening) {
-      await t.add('stockMoves', { id: uuid(), productId: id, date: openMove?.date || today(), qty: newOpening, type: 'opening', refId: openRef, refNo: 'OPENING', cost: purchasePrice, note: 'Opening stock', createdAt: now });
+      await t.add('stockMoves', { id: uuid(), productId: id, batchId: openingBatchId(id), date: openMove?.date || today(), qty: newOpening, type: 'opening', refId: openRef, refNo: 'OPENING', cost: purchasePrice, note: 'Opening stock', createdAt: now });
     }
     ctx.touched.add(id);
     await audit(t, old ? 'update_product' : 'create_product', { name });
@@ -599,7 +734,7 @@ export async function saveProduct(data) {
 export async function deleteProduct(id) {
   Auth.require('product.delete');
   const ctx = newCtx();
-  const res = await idb.write(['products', 'stockMoves', 'saleItems', 'purchaseItems', 'auditLog'], async (t) => {
+  const res = await idb.write(['products', 'batches', 'stockMoves', 'saleItems', 'purchaseItems', 'auditLog'], async (t) => {
     const p = await t.get('products', id);
     if (!p) throw new AppError('Product not found.');
     const moves = await t.getAllByIndex('stockMoves', 'productId', id);
@@ -607,6 +742,7 @@ export async function deleteProduct(id) {
     ctx.touched.add(id);
     if (used) { p.active = 0; p.updatedAt = nowISO(); await t.put('products', p); await audit(t, 'deactivate_product', { name: p.name }); return 'deactivated'; }
     for (const m of moves) await t.delete('stockMoves', m.id);
+    await t.deleteByIndex('batches', 'productId', id);
     await t.delete('products', id);
     await audit(t, 'delete_product', { name: p.name });
     return 'deleted';
@@ -621,7 +757,7 @@ export async function saveAdjustment(input) {
   const lines = (input.lines || []).map((l) => ({ ...l, qty: round3(num(l.qty)) })).filter((l) => l.qty !== 0);
   if (!lines.length) throw new AppError('Add at least one product with a non-zero quantity change.');
   const ctx = newCtx();
-  const doc = await idb.write(['adjustments', 'products', 'stockMoves', 'meta', 'auditLog'], async (t) => {
+  const doc = await idb.write(['adjustments', 'products', 'batches', 'stockMoves', 'meta', 'auditLog'], async (t) => {
     const existing = await t.get('adjustments', input.id);
     if (existing) { ctx.duplicate = true; return existing; }
     const number = await nextNumber(t, 'adjustment');
@@ -630,8 +766,18 @@ export async function saveAdjustment(input) {
       const p = await t.get('products', l.productId);
       if (!p) throw new AppError('Product not found.');
       if (p.trackStock === false) throw new AppError(`"${p.name}" does not track stock.`);
-      d.items.push({ productId: p.id, name: p.name, unit: p.unit, qty: l.qty, before: p.stock, cost: p.purchasePrice || 0 });
-      await moveStock(t, ctx, { productId: p.id, qty: l.qty, type: 'adjust', doc: d, cost: p.purchasePrice, note: d.reason });
+      // Stock out: the chosen batch, else FEFO (expired stock included, e.g. write-offs). Stock in: chosen, new or opening batch.
+      const parts = l.qty < 0
+        ? (await allocate(t, p, -l.qty, { batchId: l.batchId || null, date: d.date, allowExpired: true })).map((a) => ({ batch: a.batch, qty: -a.qty }))
+        : [{ batch: l.batchId ? await t.get('batches', l.batchId) : l.newBatch ? await inboundBatch(t, p, { ...l.newBatch, cost: p.purchasePrice, doc: d }) : await ensureOpeningBatch(t, p), qty: l.qty }];
+      const item = { productId: p.id, name: p.name, unit: p.unit, qty: l.qty, before: p.stock, cost: p.purchasePrice || 0, batches: [] };
+      for (const { batch, qty } of parts) {
+        if (!batch || batch.productId !== p.id) throw new AppError(`Batch not found for "${p.name}".`);
+        item.batches.push(batchRef(batch, qty, p));
+        await moveStock(t, ctx, { productId: p.id, qty, type: 'adjust', doc: d, cost: batch.cost || p.purchasePrice, note: d.reason, batchId: batch.id });
+      }
+      if (item.batches.length) item.cost = round2(item.batches.reduce((s, b) => s + b.qty * b.cost, 0) / l.qty);
+      d.items.push(item);
     }
     await t.add('adjustments', d);
     await audit(t, 'stock_adjustment', { number, lines: lines.length });
@@ -674,12 +820,56 @@ export async function ledger(accountId, from, to) {
   return { opening, rows, closing: run, debit: round2(rows.reduce((s, r) => s + r.debit, 0)), credit: round2(rows.reduce((s, r) => s + r.credit, 0)) };
 }
 
+// ---------- CREDIT AGING ----------
+// Open customer invoices: payments, returns and other credits are applied to the oldest charges first.
+// Returns Map(customerId → { balance, open:[{txnId, refNo, refType, date, dueDate, amount, days}], overdue, oldestDue }).
+export async function customerAging(asOf = today()) {
+  const byCust = new Map();
+  await idb.each('entries', null, null, (e) => {
+    if (!e.accountId.startsWith('C:') || e.date > asOf) return;
+    const id = e.accountId.slice(2);
+    if (!byCust.has(id)) byCust.set(id, []);
+    byCust.get(id).push(e);
+  });
+  const saleIds = new Set();
+  for (const list of byCust.values()) for (const e of list) if (e.refType === 'sale' && e.debit) saleIds.add(e.txnId);
+  const sales = await idb.read(['sales'], (t) => Promise.all([...saleIds].map((sid) => t.get('sales', sid))));
+  const due = new Map(sales.filter(Boolean).map((s) => [s.id, s.dueDate || '']));
+  const creditDays = num(getSettings().creditDays);
+  const addDays = (d, n) => { const x = new Date(d + 'T00:00:00'); x.setDate(x.getDate() + n); return localDate(x); };
+  const out = new Map();
+  for (const [id, list] of byCust) {
+    list.sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+    let credit = round2(list.reduce((s, e) => s + e.credit, 0));
+    const charges = [];
+    for (const e of list) {
+      if (!e.debit) continue;
+      const c = charges.find((x) => x.txnId === e.txnId);
+      if (c) { c.amount = round2(c.amount + e.debit); continue; }
+      charges.push({ txnId: e.txnId, refNo: e.refNo, refType: e.refType, date: e.date, amount: e.debit,
+        dueDate: due.get(e.txnId) || (creditDays > 0 ? addDays(e.date, creditDays) : '') });
+    }
+    const open = [];
+    for (const c of charges) {
+      const used = Math.min(credit, c.amount); credit = round2(credit - used);
+      const left = round2(c.amount - used);
+      if (left > 0.004) open.push({ ...c, amount: left, days: Math.round((new Date(asOf + 'T00:00:00') - new Date(c.date + 'T00:00:00')) / 86400000) });
+    }
+    const balance = round2(open.reduce((s, c) => s + c.amount, 0) - credit);
+    const od = open.filter((c) => c.dueDate && c.dueDate < asOf);
+    out.set(id, { balance, open, overdue: round2(od.reduce((s, c) => s + c.amount, 0)), oldestDue: od[0]?.dueDate || '' });
+  }
+  return out;
+}
+
 // ---------- MAINTENANCE ----------
 export async function rebuildStock() {
   Auth.require('settings.manage');
   const fixed = [];
   const ctx = newCtx();
-  await idb.write(['products', 'stockMoves'], async (t) => {
+  await idb.write(['products', 'batches', 'stockMoves'], async (t) => {
+    const n = await normalizeBatches(t);
+    if (n) fixed.push({ name: `${n} batch record(s)`, was: '', now: 'recalculated' });
     const moves = await t.getAll('stockMoves');
     const sums = {};
     for (const m of moves) sums[m.productId] = round3((sums[m.productId] || 0) + m.qty);
@@ -695,12 +885,16 @@ export async function rebuildStock() {
 
 export async function integrityCheck() {
   const issues = [];
-  const [entries, products, moves] = await idb.read(['entries', 'products', 'stockMoves'], (t) => Promise.all([t.getAll('entries'), t.getAll('products'), t.getAll('stockMoves')]));
+  const [entries, products, moves, batches] = await idb.read(['entries', 'products', 'stockMoves', 'batches'], (t) => Promise.all([t.getAll('entries'), t.getAll('products'), t.getAll('stockMoves'), t.getAll('batches')]));
   const byTxn = {};
   for (const e of entries) { const b = byTxn[e.txnId] || (byTxn[e.txnId] = { d: 0, c: 0, ref: e.refNo }); b.d += e.debit; b.c += e.credit; }
   for (const [txn, b] of Object.entries(byTxn)) if (Math.abs(b.d - b.c) > 0.009) issues.push(`Unbalanced ledger for ${b.ref || txn}: Dr ${round2(b.d)} / Cr ${round2(b.c)}`);
   const sums = {};
   for (const m of moves) sums[m.productId] = round3((sums[m.productId] || 0) + m.qty);
   for (const p of products) if (p.trackStock !== false && Math.abs((p.stock || 0) - (sums[p.id] || 0)) > EPS) issues.push(`Stock mismatch for "${p.name}": cached ${p.stock}, ledger ${sums[p.id] || 0}`);
-  return { issues, checked: { entries: entries.length, products: products.length, stockMoves: moves.length } };
+  const bsums = {};
+  for (const m of moves) { if (!m.batchId) { issues.push(`Stock movement ${m.refNo} has no batch`); continue; } bsums[m.batchId] = round3((bsums[m.batchId] || 0) + m.qty); }
+  const pname = Object.fromEntries(products.map((p) => [p.id, p.name]));
+  for (const b of batches) if (Math.abs((b.qty || 0) - (bsums[b.id] || 0)) > EPS) issues.push(`Batch mismatch for "${pname[b.productId] || b.productId}" batch ${b.batchNo}: cached ${b.qty}, ledger ${bsums[b.id] || 0}`);
+  return { issues, checked: { entries: entries.length, products: products.length, stockMoves: moves.length, batches: batches.length } };
 }

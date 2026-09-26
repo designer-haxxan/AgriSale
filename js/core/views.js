@@ -90,3 +90,29 @@ export function pager($container, items, rowFn, pageSize = 50, empty = '') {
   $container.off('click.pager').on('click.pager', '.pager-more', more);
   more();
 }
+
+// ---------- expiry ----------
+export function expiryDays(expiry, on = today()) {
+  if (!expiry) return null;
+  return Math.round((new Date(expiry + 'T00:00:00') - new Date(on + 'T00:00:00')) / 86400000);
+}
+// 'expired' | 'near' | 'ok' | 'none'
+export function expiryState(expiry) {
+  const d = expiryDays(expiry);
+  if (d === null) return 'none';
+  if (d < 0) return 'expired';
+  return d <= Number(getSettings().nearExpiryDays || 0) ? 'near' : 'ok';
+}
+export function fmtExpiry(expiry) {
+  if (!expiry) return 'No expiry';
+  const d = new Date(expiry + 'T00:00:00');
+  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+}
+export function expiryBadge(expiry, { short = false } = {}) {
+  const st = expiryState(expiry);
+  if (st === 'none') return short ? '' : '<span class="badge text-bg-light border">No expiry</span>';
+  const d = expiryDays(expiry);
+  const cls = { expired: 'text-bg-danger', near: 'text-bg-warning', ok: 'text-bg-light border' }[st];
+  const left = st === 'expired' ? `expired ${-d}d ago` : `${d}d left`;
+  return `<span class="badge ${cls}" title="Expiry ${esc(expiry)}">Exp ${esc(fmtExpiry(expiry))}${st !== 'ok' || !short ? ` · ${left}` : ''}</span>`;
+}

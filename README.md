@@ -1,9 +1,19 @@
-# SaleAPP POS
+# AgriSale POS
 
-Offline-first, mobile-first Point of Sale as a static PWA (no build step).
+Offline-first, mobile-first Point of Sale for **fertilizer, pesticide and seed dealers**, as a static PWA (no build step).
 HTML5 · ES modules · jQuery · Bootstrap 5 · Bootstrap Icons · IndexedDB · Service Worker · eposwala login API.
 
-## Features
+## Agri features
+
+- **Batches & expiry.** Every purchase line records a batch no., expiry date and (optionally) manufacturing date. Products flagged *Has batches with expiry dates* (pesticides, seeds…) cannot be purchased without an expiry date. Plain fertilizers can turn this off.
+- **FEFO selling (First-Expiry-First-Out).** A sale automatically takes stock from the batch that expires first, splitting a line across batches when needed. Expired batches are skipped and cannot be picked; this can be allowed under *Settings → Batches, expiry & credit*. A specific batch can still be chosen on a cart line.
+- **Batch-aware returns.** Sale returns go back into the batches the goods were sold from. Purchase returns come out of the batch that purchase created. Receipts, invoices and WhatsApp messages show the batch and expiry of each line.
+- **Expiry control.** The *Expiry & batches* screen lists expired and expiring stock (the warning window is configurable, 60 days by default) with a one-tap **write off** via a stock adjustment. The dashboard shows expired / expiring counts. The *Expiry & batch stock* and *Batch traceability* reports tell you which farmer received which batch, for recalls.
+- **Product details.** Company/brand, active ingredient / formulation, pack size, registration no. All of them are searchable in the POS.
+- **Credit with due dates.** Credit sales can carry a due date (quick 30/90/180-day buttons, or a default credit period). The *Credit aging / overdue* report and each customer page list unpaid bills. Payments and returns are applied to the oldest bill first.
+- **WhatsApp messages** (see below): invoices, returns, payment receipts, balance/credit reminders, ledger statements, and owner alerts (daily summary, expiry, low stock).
+
+## General features
 
 - **POS sales**: search, camera/hardware barcode scan, cart with qty/rate/discount, bill discount, tax, cash/bank/credit/partial payments, change calculation, hold/resume, edit, void, returns, receipt printing. The cart survives page refresh.
 - **Purchases**: suppliers, purchase rate, discount, paid/remaining, edit, void, returns. Can update product cost from the latest purchase.
@@ -26,8 +36,9 @@ js/app.js               Boot, auth gate + session expiry, router (lazy-loaded mo
 js/config.js            Login API base URL, support phone, app/schema/backup versions
 js/core/                utils, settings (LocalStorage), UI helpers, shared views
 js/db/                  IndexedDB wrapper (atomic multi-store transactions) + schema
-js/services/            auth, catalog (in-memory search index), posting engine, backup
-js/modules/             dashboard, pos (sale + purchase), documents, products, stock, parties, vouchers, accounts, settings, backup
+js/db/batches.js        Opening batch + batch normalisation (used by the v2 migration, restore and "Recalculate stock")
+js/services/            auth, catalog (in-memory search index + batches), posting engine (FEFO, batches, credit aging), backup, whatsapp
+js/modules/             dashboard, pos (sale + purchase), documents, products, stock (+ expiry), parties, vouchers, accounts, whatsapp, settings, backup
 js/reports/             reports
 js/printer/             ESC/POS encoder, receipt builder, Bluetooth/RawBT/browser printing
 js/scanner/             camera scanning + keyboard-wedge scanner detection
@@ -37,7 +48,7 @@ js/scanner/             camera scanning + keyboard-wedge scanner detection
 
 | Where | What |
 |---|---|
-| IndexedDB `saleapp_pos` | All business data: products, categories, customers, suppliers, accounts, sales + items, purchases + items, returns, vouchers, **ledger entries**, **stock moves**, adjustments, held sales, audit log, counters |
+| IndexedDB `saleapp_pos` (v2) | All business data: products, categories, customers, suppliers, accounts, sales + items, purchases + items, returns, vouchers, **ledger entries**, **stock moves**, **batches**, adjustments, held sales, WhatsApp message log (`waLog`), audit log, counters |
 | LocalStorage | Settings (business profile, tax, prefixes, printer, theme), device preferences, `minipos.session` (`{ token, expiresAt, username }`), `minipos.deviceId`, POS cart drafts |
 
 **Data integrity.** Each operation (sale, purchase, return, voucher, adjustment, edit, void) runs in **one IndexedDB transaction**. That transaction writes:
@@ -51,6 +62,17 @@ js/scanner/             camera scanning + keyboard-wedge scanner detection
 Any failure aborts everything. Document IDs are generated when the cart is created, so a double tap or a retry after a refresh is detected as a duplicate instead of saving twice. Invoice numbers (`SALE-000001`…) come from a counter inside the same transaction, backed by a unique index. Failed transactions don't consume numbers.
 
 **Balances and reports are always derived from records.** Customer, supplier and account balances come from ledger entries. Stock-as-of-date comes from stock moves. The cached `product.stock` is updated in the same transaction and can be checked or rebuilt under *Settings → App & data*.
+
+**Batches.** Every stock move of a stock-tracked product carries a `batchId`. A batch's `qty` is a cache of the sum of its moves, exactly like `product.stock`, and *Check data integrity* / *Recalculate stock* verify and rebuild both. Opening stock (and all stock that existed before v2) lives in the product's opening batch `ob:<productId>`. Upgrading a v1 database moves existing stock into that batch automatically, and restoring a v1 backup does the same. Sale lines store their batch allocation (`saleItems[].batches`), so cost of goods sold uses the actual batch costs.
+
+### WhatsApp
+
+Messages are sent with WhatsApp **click-to-chat** links. The app writes the message and opens WhatsApp (the app on phones, WhatsApp Web on computers, configurable) with the chat and text filled in, and the user presses **Send**. This needs no server, no WhatsApp Business API account and no per-message fees. It works with the shop's normal WhatsApp or WhatsApp Business number.
+
+- **Where:** *Send on WhatsApp* after each sale; buttons on sale, return and cash-book (receipt/payment) pages; *WhatsApp* menu on each customer/supplier (reminder, ledger statement for the selected period, blank message); the **WhatsApp** screen with credit reminders (one tap each, or *Send one by one* through the whole list), owner alerts and a log of sent messages.
+- **Numbers:** local numbers such as `0300-1234567` become `923001234567` using the country code in *Settings → WhatsApp*. Customers can have a separate WhatsApp number.
+- **Templates:** every message type has an editable template with placeholders (`{name}`, `{total}`, `{account_balance}`, `{due_date}`…), including Urdu text. Lines whose placeholders are empty are left out.
+- **Limits:** browsers only allow one WhatsApp window per click, so bulk reminders are sent one after another rather than in the background. Truly automatic sending (without anyone pressing Send) needs the WhatsApp Business Cloud API and a server, which this offline app doesn't have. Messages are text; for a PDF statement, print to PDF and attach it in WhatsApp.
 
 ### Authentication
 
@@ -96,12 +118,12 @@ Then open http://localhost:8765.
 
 ### 3. Deploy
 
-**GitHub Pages:** this repository is served from branch `main`, folder `/ (root)` (*Settings → Pages*), at https://designer-haxxan.github.io/DistERP/. All paths are relative, so the app works from that sub-path. `.nojekyll` makes Pages serve the files unchanged. Login from `github.io` only works once the eposwala API allows the origin `https://designer-haxxan.github.io` (see CORS above).
+**GitHub Pages:** this repository is served from branch `main`, folder `/ (root)` (*Settings → Pages*), at https://designer-haxxan.github.io/AgriSale/. All paths are relative, so the app works from that sub-path. `.nojekyll` makes Pages serve the files unchanged. Login from `github.io` only works once the eposwala API allows the origin `https://designer-haxxan.github.io` (see CORS above).
 
 
 Host the folder on **https://eposwala.com** (e.g. an IIS site or virtual directory next to `/api`), or on any other HTTPS host once the API allows that origin. **HTTPS is required** for the service worker, camera and Web Bluetooth.
 
-When you change any file, bump `VERSION` in `service-worker.js`. Installed clients will then show an "Update" prompt.
+When you change any file, bump `VERSION` in `service-worker.js`. Installed clients will then show an "Update" prompt. New files must also be added to its `SHELL` list.
 
 ## Backup & restore
 
@@ -138,5 +160,6 @@ When you change any file, bump `VERSION` in `service-worker.js`. Installed clien
 - **Data lives on the device.** There is no multi-device cloud sync of POS data. Use backups regularly; the dashboard reminds you after 7 days. To combine data from several devices, give each device different number prefixes (*Settings*) and use **Merge**.
 - **Anyone with physical access can read local data.** The offline session gate is client-side. A person with the device and developer tools can read IndexedDB. Use device lock screens.
 - **No user management in the app.** Accounts, passwords, device resets and disabling are handled on the eposwala server side. The API has no endpoints for them.
-- **Cost of goods sold uses the last purchase price** recorded on each sale line, not FIFO or weighted average.
+- **Cost of goods sold uses batch costs.** Each sale line records the cost of the batches it was taken from. Stock that existed before v2 carries the product's purchase price at upgrade time.
+- **WhatsApp sending is not automatic.** See *WhatsApp* above.
 - **iOS has no Web Bluetooth.** Print via AirPrint or the browser dialog instead.

@@ -3,12 +3,18 @@
 const KEY = 'pos.settings';
 
 export const DEFAULT_SETTINGS = {
-  business: { name: 'My Store', address: '', phone: '', taxNo: '', footer: 'Thank you for your purchase!' },
+  business: { name: 'My Agri Store', address: '', phone: '', taxNo: '', licenseNo: '', footer: 'Thank you for your purchase!' },
   currency: 'Rs',
   taxEnabled: false,
   taxRate: 0,
   allowNegativeStock: false,
   updatePurchasePrice: true,
+  // Batches & expiry
+  nearExpiryDays: 60,
+  allowExpiredSale: false,
+  creditDays: 0,
+  // WhatsApp messaging (click-to-chat; the user presses Send in WhatsApp)
+  whatsapp: { countryCode: '92', mode: 'auto', ownerPhone: '', offerAfterSale: true, statementRows: 30, templates: {} },
   prefixes: { sale: 'SALE', purchase: 'PUR', saleReturn: 'SRN', purchaseReturn: 'PRN', receipt: 'RCV', payment: 'PAY', transfer: 'TRF', adjustment: 'ADJ' },
   printer: { method: 'browser', width: 58, autoPrint: false, copies: 1, chunkSize: 20, deviceName: '', deviceId: '' },
   theme: 'auto',
@@ -57,5 +63,5 @@ export function applyTheme() {
   const t = getSettings().theme;
   const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1a1d21' : '#0d6efd');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1a1d21' : '#198754');
 }

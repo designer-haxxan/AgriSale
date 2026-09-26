@@ -6,6 +6,7 @@ import { getSettings, saveSettings } from '../core/settings.js';
 import * as Auth from '../services/auth.js';
 import * as Posting from '../services/posting.js';
 import * as Printer from '../printer/printer.js';
+import { TEMPLATES, normalizePhone, compose } from '../services/whatsapp.js';
 
 const $ = window.jQuery;
 
@@ -28,6 +29,7 @@ export default {
         <div class="col-12"><label class="form-label">Address</label><input name="address" class="form-control" value="${esc(s.business.address)}" ${ro}></div>
         <div class="col-6"><label class="form-label">Phone</label><input name="phone" class="form-control" value="${esc(s.business.phone)}" ${ro}></div>
         <div class="col-6"><label class="form-label">Tax / NTN no.</label><input name="taxNo" class="form-control" value="${esc(s.business.taxNo)}" ${ro}></div>
+        <div class="col-12"><label class="form-label">Pesticide / fertilizer dealer license no.</label><input name="licenseNo" class="form-control" value="${esc(s.business.licenseNo || '')}" ${ro}></div>
         <div class="col-8"><label class="form-label">Receipt footer</label><input name="footer" class="form-control" value="${esc(s.business.footer)}" ${ro}></div>
         <div class="col-4"><label class="form-label">Currency</label><input name="currency" class="form-control" maxlength="5" value="${esc(s.currency)}" ${ro}></div>
         ${manage ? '<div class="col-12"><button class="btn btn-primary">Save</button></div>' : ''}</form>`)}
@@ -39,6 +41,12 @@ export default {
         <div class="col-12 small text-body-secondary mt-2">Document number prefixes (use a different prefix on each device if several devices sell at the same time)</div>
         ${[['sale', 'Sale'], ['purchase', 'Purchase'], ['saleReturn', 'Sale return'], ['purchaseReturn', 'Purchase return'], ['receipt', 'Receipt'], ['payment', 'Payment'], ['transfer', 'Transfer'], ['adjustment', 'Adjustment']]
           .map(([k, l]) => `<div class="col-6 col-md-3"><label class="form-label small">${l}</label><input name="p_${k}" class="form-control form-control-sm" maxlength="12" value="${esc(P[k])}" ${ro} pattern="[A-Za-z0-9]+"></div>`).join('')}
+        ${manage ? '<div class="col-12"><button class="btn btn-primary">Save</button></div>' : ''}</form>`)}
+      ${section('Batches, expiry & credit', 'hourglass-split', `<form class="f-expiry row g-2">
+        <div class="col-6"><label class="form-label">"Expiring soon" warning</label><div class="input-group"><input name="nearExpiryDays" type="number" min="0" max="730" class="form-control" value="${esc(s.nearExpiryDays)}" ${ro}><span class="input-group-text">days</span></div></div>
+        <div class="col-6"><label class="form-label">Default credit period</label><div class="input-group"><input name="creditDays" type="number" min="0" max="730" class="form-control" value="${esc(s.creditDays)}" ${ro}><span class="input-group-text">days</span></div><div class="form-text">0 = no automatic due date</div></div>
+        <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="allowExpiredSale" id="s-exps" ${s.allowExpiredSale ? 'checked' : ''} ${ro}><label class="form-check-label" for="s-exps">Allow selling expired batches (not recommended)</label></div></div>
+        <div class="col-12 small text-body-secondary">Sales always take stock from the batch with the earliest expiry first (FEFO). A specific batch can still be chosen on each cart line.</div>
         ${manage ? '<div class="col-12"><button class="btn btn-primary">Save</button></div>' : ''}</form>`)}
       ${section('Appearance', 'palette', `<select class="form-select f-theme"><option value="auto">Follow device</option><option value="light">Light</option><option value="dark">Dark</option></select>`)}
     </div><div class="col-lg-6">
@@ -62,6 +70,20 @@ export default {
         </div>
         <div class="rawbt-box small text-body-secondary mt-2 ${s.printer.method === 'rawbt' ? '' : 'd-none'}">Install the free <b>RawBT</b> app from Google Play, pair your printer in RawBT, then print from here. Receipts are sent as ESC/POS data.</div>
         <button class="btn btn-outline-secondary mt-3 btn-test"><i class="bi bi-printer me-1"></i>Test print</button>`)}
+      ${section('WhatsApp', 'whatsapp', `<form class="f-wa row g-2">
+        <div class="col-4"><label class="form-label">Country code</label><div class="input-group"><span class="input-group-text">+</span><input name="countryCode" class="form-control" inputmode="numeric" maxlength="4" value="${esc(s.whatsapp.countryCode)}"></div></div>
+        <div class="col-8"><label class="form-label">Open messages in</label><select name="mode" class="form-select">
+          ${[['auto', 'Automatic (app on phones, WhatsApp Web on computers)'], ['web', 'WhatsApp Web (web.whatsapp.com)'], ['wame', 'wa.me link (lets you choose app or web)'], ['app', 'WhatsApp desktop / phone app']].map(([v, l]) => `<option value="${v}" ${s.whatsapp.mode === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="col-6"><label class="form-label">Owner / manager WhatsApp</label><input name="ownerPhone" type="tel" class="form-control" value="${esc(s.whatsapp.ownerPhone)}" placeholder="03xx xxxxxxx"></div>
+        <div class="col-6"><label class="form-label">Statement rows</label><input name="statementRows" type="number" min="5" max="100" class="form-control" value="${esc(s.whatsapp.statementRows)}"></div>
+        <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="offerAfterSale" id="s-waas" ${s.whatsapp.offerAfterSale ? 'checked' : ''}><label class="form-check-label" for="s-waas">Highlight "Send on WhatsApp" after each sale to a customer with a number</label></div></div>
+        <div class="col-12"><button class="btn btn-primary">Save</button> <button type="button" class="btn btn-outline-success btn-wa-test"><i class="bi bi-whatsapp me-1"></i>Test</button></div></form>
+        <hr><div class="small fw-semibold mb-1">Message templates</div>
+        <div class="small text-body-secondary mb-2">Placeholders like <code>{name}</code> are filled in automatically. A line whose placeholders are all empty is left out. You can write templates in Urdu.</div>
+        <select class="form-select mb-2 tpl-key">${Object.entries(TEMPLATES).map(([k, t]) => `<option value="${k}">${esc(t.label)}</option>`).join('')}</select>
+        <textarea class="form-control font-monospace small tpl-text" rows="12"></textarea>
+        <div class="small text-body-secondary mt-1 tpl-vars"></div>
+        <div class="d-flex gap-2 mt-2"><button class="btn btn-primary btn-sm btn-tpl-save">Save template</button><button class="btn btn-outline-secondary btn-sm btn-tpl-reset">Reset to default</button></div>`)}
       ${section('My account', 'person-circle', `<div class="mb-2"><b>${esc(u.username)}</b><div class="small text-body-secondary">${esc(Auth.ROLES[u.role] || u.role)}</div></div>
         <div class="small">Session valid until <b>${esc(fmtDateTime(new Date(Auth.expiresAt()).toISOString()))}</b>. After that, sign in again while online.</div>
         <div class="small mt-1">Device ID: <code class="user-select-all">${esc(Auth.deviceId())}</code></div>
@@ -79,7 +101,7 @@ export default {
       e.preventDefault();
       const v = Object.fromEntries(new FormData(e.target).entries());
       if (!v.name.trim()) return UI.toast('Business name is required', 'warning');
-      saveSettings({ business: { name: v.name.trim(), address: v.address.trim(), phone: v.phone.trim(), taxNo: v.taxNo.trim(), footer: v.footer.trim() }, currency: v.currency.trim() || 'Rs' });
+      saveSettings({ business: { name: v.name.trim(), address: v.address.trim(), phone: v.phone.trim(), taxNo: v.taxNo.trim(), licenseNo: (v.licenseNo || '').trim(), footer: v.footer.trim() }, currency: v.currency.trim() || 'Rs' });
       UI.toast('Business profile saved');
     });
     $el.on('submit', '.f-sales', (e) => {
@@ -96,6 +118,41 @@ export default {
       saveSettings({ taxEnabled: f.taxEnabled.checked, taxRate: rate, allowNegativeStock: f.allowNegativeStock.checked, updatePurchasePrice: f.updatePurchasePrice.checked, prefixes });
       UI.toast('Settings saved');
     });
+    $el.on('submit', '.f-expiry', (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const nd = parseInt(f.nearExpiryDays.value, 10); const cd = parseInt(f.creditDays.value, 10);
+      if (!(nd >= 0 && nd <= 730) || !(cd >= 0 && cd <= 730)) return UI.toast('Enter days between 0 and 730', 'warning');
+      saveSettings({ nearExpiryDays: nd, creditDays: cd, allowExpiredSale: f.allowExpiredSale.checked });
+      UI.toast('Expiry & credit settings saved');
+    });
+    $el.on('submit', '.f-wa', (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const cc = f.countryCode.value.replace(/\D/g, '');
+      if (!cc) return UI.toast('Enter the country code (92 for Pakistan)', 'warning');
+      if (f.ownerPhone.value.trim() && !normalizePhone(f.ownerPhone.value)) return UI.toast('The owner number is not valid', 'warning');
+      saveSettings({ whatsapp: { countryCode: cc, mode: f.mode.value, ownerPhone: f.ownerPhone.value.trim(), offerAfterSale: f.offerAfterSale.checked,
+        statementRows: Math.max(5, Math.min(100, parseInt(f.statementRows.value, 10) || 30)) } });
+      UI.toast('WhatsApp settings saved');
+    });
+    $el.on('click', '.btn-wa-test', () => compose({ title: 'Test message', phone: getSettings().whatsapp.ownerPhone, text: `Test message from ${getSettings().business.name}.` }));
+    const tplShow = () => {
+      const k = $el.find('.tpl-key').val();
+      $el.find('.tpl-text').val(getSettings().whatsapp.templates?.[k] || TEMPLATES[k].text);
+      $el.find('.tpl-vars').html(TEMPLATES[k].vars.map((x) => `<code>{${x}}</code>`).join(' '));
+    };
+    tplShow();
+    $el.on('change', '.tpl-key', tplShow);
+    const saveTpl = (k, text) => {
+      const templates = { ...(getSettings().whatsapp.templates || {}) };
+      if (text === null) delete templates[k]; else templates[k] = text;
+      // saveSettings merges objects, so the whole templates map is replaced explicitly.
+      const s2 = getSettings(); s2.whatsapp.templates = {};
+      saveSettings({ whatsapp: { templates } });
+    };
+    $el.on('click', '.btn-tpl-save', () => { const t = $el.find('.tpl-text').val(); if (!t.trim()) return UI.toast('Template is empty', 'warning'); saveTpl($el.find('.tpl-key').val(), t); UI.toast('Template saved'); });
+    $el.on('click', '.btn-tpl-reset', () => { saveTpl($el.find('.tpl-key').val(), null); tplShow(); UI.toast('Default template restored'); });
     const btStatus = () => $el.find('.bt-status').text(Printer.isConnected() ? `Connected: ${Printer.connectedName()}` : getSettings().printer.deviceName ? `Not connected (last: ${getSettings().printer.deviceName})` : 'No printer connected');
     btStatus();
     const onPrinter = () => btStatus();

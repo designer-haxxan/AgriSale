@@ -1,14 +1,14 @@
 // Products & categories.
 import * as UI from '../core/ui.js';
-import { esc, fmtNum, fmtQty, debounce, compressImage, AppError } from '../core/utils.js';
-import { money, pager } from '../core/views.js';
+import { esc, fmtNum, fmtQty, num, debounce, compressImage, AppError } from '../core/utils.js';
+import { money, pager, expiryBadge, expiryState } from '../core/views.js';
 import * as Auth from '../services/auth.js';
 import * as Catalog from '../services/catalog.js';
 import * as Posting from '../services/posting.js';
 import * as Scanner from '../scanner/scanner.js';
 
 const $ = window.jQuery;
-const UNITS = ['pcs', 'kg', 'g', 'ltr', 'ml', 'box', 'pack', 'dozen', 'm', 'ft', 'pair', 'set'];
+const UNITS = ['bag', 'kg', 'g', 'ltr', 'ml', 'bottle', 'packet', 'can', 'drum', 'box', 'carton', 'pcs', 'acre pack'];
 
 // Internal EAN-13 barcode in the "in-store" 20-29 prefix range.
 function generateBarcode() {
@@ -22,9 +22,11 @@ function generateBarcode() {
 }
 
 export async function editProduct(product = null, prefill = {}) {
-  const p = { unit: 'pcs', trackStock: true, active: 1, ...prefill, ...(product || {}) };
+  const p = { unit: 'bag', trackStock: true, hasExpiry: true, active: 1, ...prefill, ...(product || {}) };
   let image = p.image || '';
   const cats = Catalog.allCategories();
+  const ob = product ? Catalog.batches(product.id).find((b) => b.id === 'ob:' + product.id) : null;
+  const companies = [...new Set(Catalog.allProducts().map((x) => x.company).filter(Boolean))].sort();
   return UI.formModal({
     title: product ? 'Edit product' : 'New product', size: 'lg',
     body: `<div class="row g-2">
@@ -36,11 +38,18 @@ export async function editProduct(product = null, prefill = {}) {
         <button type="button" class="btn btn-outline-secondary btn-gen-bc" title="Generate" aria-label="Generate barcode"><i class="bi bi-magic"></i></button></div></div>
       <div class="col-6 col-md-2"><label class="form-label">Category</label><select name="categoryId" class="form-select"><option value="">—</option>${UI.options(cats, p.categoryId)}</select></div>
       <div class="col-6 col-md-2"><label class="form-label">Unit</label><input name="unit" class="form-control" list="unit-list" value="${esc(p.unit)}"><datalist id="unit-list">${UNITS.map((u) => `<option value="${u}">`).join('')}</datalist></div>
+      <div class="col-6 col-md-4"><label class="form-label">Company / brand</label><input name="company" class="form-control" list="company-list" maxlength="80" value="${esc(p.company)}" placeholder="e.g. FFC, Syngenta"><datalist id="company-list">${companies.map((c) => `<option value="${esc(c)}">`).join('')}</datalist></div>
+      <div class="col-6 col-md-4"><label class="form-label">Pack size</label><input name="packSize" class="form-control" maxlength="40" value="${esc(p.packSize)}" placeholder="e.g. 50 kg, 1 ltr"></div>
+      <div class="col-12 col-md-4"><label class="form-label">Registration no.</label><input name="regNo" class="form-control" maxlength="60" value="${esc(p.regNo)}"></div>
+      <div class="col-12"><label class="form-label">Active ingredient / formulation</label><input name="activeIngredient" class="form-control" maxlength="150" value="${esc(p.activeIngredient)}" placeholder="e.g. Lambda-cyhalothrin 2.5% EC, Urea 46% N"></div>
       <div class="col-4"><label class="form-label">Purchase price</label><input name="purchasePrice" class="form-control" inputmode="decimal" value="${p.purchasePrice ?? ''}"></div>
       <div class="col-4"><label class="form-label">Sale price</label><input name="salePrice" class="form-control" inputmode="decimal" value="${p.salePrice ?? ''}"></div>
       <div class="col-4"><label class="form-label">Wholesale</label><input name="wholesalePrice" class="form-control" inputmode="decimal" value="${p.wholesalePrice ?? ''}"></div>
       <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="trackStock" id="pr-track" ${p.trackStock !== false ? 'checked' : ''}><label class="form-check-label" for="pr-track">Track stock (turn off for services)</label></div></div>
+      <div class="col-12 stock-f"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="hasExpiry" id="pr-exp" ${p.hasExpiry !== false ? 'checked' : ''}><label class="form-check-label" for="pr-exp">Has batches with expiry dates (pesticides, seeds…) — expiry required on purchase</label></div></div>
       <div class="col-4 stock-f"><label class="form-label">Opening stock</label><input name="openingStock" class="form-control" inputmode="decimal" value="${p.openingStock ?? ''}"></div>
+      <div class="col-4 stock-f"><label class="form-label">Opening batch no.</label><input name="openingBatchNo" class="form-control" maxlength="40" value="${esc(ob && ob.batchNo !== 'OPENING' ? ob.batchNo : '')}" placeholder="OPENING"></div>
+      <div class="col-4 stock-f"><label class="form-label">Opening expiry</label><input type="date" name="openingExpiry" class="form-control" value="${esc(ob?.expiry || '')}"></div>
       <div class="col-4 stock-f"><label class="form-label">Minimum stock</label><input name="minStock" class="form-control" inputmode="decimal" value="${p.minStock ?? ''}"></div>
       <div class="col-4 stock-f"><label class="form-label">Current stock</label><input class="form-control" value="${fmtQty(p.stock || 0)}" disabled></div>
       <div class="col-12"><label class="form-label">Image</label><div class="d-flex align-items-center gap-2">
@@ -67,6 +76,7 @@ export async function editProduct(product = null, prefill = {}) {
     },
     onSubmit: async (v) => {
       if (v.salePrice === '' && !product) throw new AppError('Enter a sale price.');
+      if (v.trackStock && v.hasExpiry && num(v.openingStock) > 0 && !v.openingExpiry && !product) throw new AppError('Enter the expiry date of the opening stock (or turn off expiry tracking).');
       const saved = await Posting.saveProduct({ ...v, id: product?.id, image, active: product ? v.active : true });
       UI.toast(product ? 'Product updated' : 'Product added');
       return saved;
@@ -107,7 +117,7 @@ async function renderList(el) {
     <div class="filters">
       <div class="input-group flex-grow-2"><input type="search" class="form-control q" placeholder="Search name, SKU, barcode…"><button class="btn btn-outline-secondary btn-scan" aria-label="Scan"><i class="bi bi-upc-scan"></i></button></div>
       <select class="form-select f-cat"><option value="">All categories</option>${UI.options(Catalog.allCategories(), '')}</select>
-      <select class="form-select f-status"><option value="active">Active</option><option value="low">Low stock</option><option value="out">Out of stock</option><option value="inactive">Inactive</option><option value="all">All</option></select>
+      <select class="form-select f-status"><option value="active">Active</option><option value="low">Low stock</option><option value="out">Out of stock</option><option value="near">Expiring soon</option><option value="expired">Has expired stock</option><option value="inactive">Inactive</option><option value="all">All</option></select>
     </div>
     <div class="small text-body-secondary mb-2 summary"></div>
     <div class="list-card list"></div>`);
@@ -121,6 +131,7 @@ async function renderList(el) {
       if (!p.active) return false;
       if (f === 'low') return p.trackStock !== false && p.stock <= (p.minStock || 0);
       if (f === 'out') return p.trackStock !== false && p.stock <= 0;
+      if (f === 'near' || f === 'expired') return expiryState(Catalog.nearestExpiry(p.id)) === f;
       return true;
     });
     $el.find('.summary').text(`${list.length} product(s)`);
@@ -129,7 +140,8 @@ async function renderList(el) {
       return `<button class="list-row" data-id="${esc(p.id)}">
         ${p.image ? `<img class="thumb" src="${p.image}" alt="" loading="lazy">` : '<div class="thumb"><i class="bi bi-box"></i></div>'}
         <div class="main"><div class="title">${esc(p.name)} ${p.active ? '' : '<span class="badge text-bg-secondary">Inactive</span>'}</div>
-          <div class="sub">${esc([p.sku, p.barcode, Catalog.category(p.categoryId)?.name].filter(Boolean).join(' · ') || '—')}</div></div>
+          <div class="sub">${esc([p.company, p.packSize, Catalog.category(p.categoryId)?.name, p.sku].filter(Boolean).join(' · ') || '—')}</div>
+          ${Catalog.nearestExpiry(p.id) ? `<div class="sub">${expiryBadge(Catalog.nearestExpiry(p.id), { short: true })}</div>` : ''}</div>
         <div class="end"><div class="fw-semibold money">${money(p.salePrice)}</div>
           <div class="sub ${low ? 'text-danger fw-semibold' : ''}">${p.trackStock === false ? 'service' : `${fmtQty(p.stock)} ${esc(p.unit)}`}</div></div></button>`;
     }, 60, UI.emptyState('No products found', 'box-seam', canEdit ? '<button class="btn btn-primary btn-sm mt-3 btn-add">Add product</button>' : ''));
@@ -157,7 +169,10 @@ async function productActions(p, redraw) {
     body: `<div class="row small mb-3">
         <div class="col-6">Sale: <b>${money(p.salePrice)}</b></div><div class="col-6">Wholesale: <b>${money(p.wholesalePrice)}</b></div>
         <div class="col-6">Cost: <b>${money(p.purchasePrice)}</b></div><div class="col-6">Stock: <b>${p.trackStock === false ? 'n/a' : fmtQty(p.stock) + ' ' + esc(p.unit)}</b></div>
-        <div class="col-6">Margin: <b>${p.salePrice ? fmtNum(((p.salePrice - p.purchasePrice) / p.salePrice) * 100) + '%' : '—'}</b></div><div class="col-6">Min stock: <b>${fmtQty(p.minStock || 0)}</b></div></div>
+        <div class="col-6">Margin: <b>${p.salePrice ? fmtNum(((p.salePrice - p.purchasePrice) / p.salePrice) * 100) + '%' : '—'}</b></div><div class="col-6">Min stock: <b>${fmtQty(p.minStock || 0)}</b></div>
+        ${p.company ? `<div class="col-6">Company: <b>${esc(p.company)}</b></div>` : ''}${p.regNo ? `<div class="col-6">Reg no: <b>${esc(p.regNo)}</b></div>` : ''}
+        ${p.activeIngredient ? `<div class="col-12">Active ingredient: <b>${esc(p.activeIngredient)}</b></div>` : ''}</div>
+      ${Catalog.batches(p.id).length ? `<div class="list-card mb-3">${Catalog.batches(p.id).map((b) => `<div class="list-row"><div class="main"><div class="title">Batch ${esc(b.batchNo)}</div><div class="sub">${expiryBadge(b.expiry)}</div></div><div class="end fw-semibold">${fmtQty(b.qty)} ${esc(p.unit)}</div></div>`).join('')}</div>` : ''}
       <div class="d-grid gap-2">
         <button class="btn btn-primary btn-edit"><i class="bi bi-pencil me-1"></i>Edit product</button>
         <a class="btn btn-outline-secondary" href="#/stock/${encodeURIComponent(p.id)}"><i class="bi bi-clock-history me-1"></i>Stock ledger</a>

@@ -4,12 +4,19 @@ import { getSettings } from '../core/settings.js';
 import { fmtNum, fmtQty, fmtDateTime, fmtDate, esc, localDate } from '../core/utils.js';
 import { EscPos } from './escpos.js';
 
+// Short batch/expiry text for a receipt line, e.g. "B:K12 Exp:03/27".
+const mmyy = (d) => (d ? `${d.slice(5, 7)}/${d.slice(2, 4)}` : '');
+function batchText(i) {
+  const list = i.batches?.length ? i.batches : i.batchNo ? [{ batchNo: i.batchNo, expiry: i.expiry }] : [];
+  return list.filter((b) => b.batchNo !== 'OPENING' || b.expiry).map((b) => `B:${b.batchNo}${b.expiry ? ' Exp:' + mmyy(b.expiry) : ''}`).join(', ');
+}
+
 const TITLES = { sale: 'SALES RECEIPT', purchase: 'PURCHASE', saleReturn: 'SALE RETURN', purchaseReturn: 'PURCHASE RETURN', receipt: 'PAYMENT RECEIPT', payment: 'PAYMENT VOUCHER', transfer: 'TRANSFER' };
 
 export async function buildReceipt(kind, doc) {
   const s = getSettings();
   const b = s.business;
-  const m = { header: [b.name, b.address, b.phone ? 'Tel: ' + b.phone : '', b.taxNo ? 'Tax No: ' + b.taxNo : ''].filter(Boolean), title: TITLES[kind] || kind.toUpperCase(),
+  const m = { header: [b.name, b.address, b.phone ? 'Tel: ' + b.phone : '', b.licenseNo ? 'License: ' + b.licenseNo : '', b.taxNo ? 'Tax No: ' + b.taxNo : ''].filter(Boolean), title: TITLES[kind] || kind.toUpperCase(),
     info: [], items: [], totals: [], footer: b.footer || '', void: doc.status === 'void' };
   const sameDay = doc.createdAt && localDate(new Date(doc.createdAt)) === doc.date;
   m.info.push(['No', doc.number], ['Date', sameDay ? fmtDateTime(doc.createdAt) : fmtDate(doc.date)]);
@@ -20,7 +27,7 @@ export async function buildReceipt(kind, doc) {
     const list = items.length ? items : (doc.voidedItems || []);
     list.sort((a, b) => a.line - b.line);
     m.info.push([kind === 'sale' ? 'Customer' : 'Supplier', kind === 'sale' ? doc.customerName : doc.supplierName]);
-    m.items = list.map((i) => ({ name: i.name, qty: i.qty, unit: i.unit, rate: i.rate, discount: i.discount, amount: i.amount }));
+    m.items = list.map((i) => ({ name: i.name, qty: i.qty, unit: i.unit, rate: i.rate, discount: i.discount, amount: i.amount, batch: batchText(i) }));
     m.totals.push(['Subtotal', doc.subtotal]);
     if (doc.discount) m.totals.push(['Discount', -doc.discount]);
     if (doc.tax) m.totals.push([`Tax (${doc.taxRate}%)`, doc.tax]);
@@ -29,10 +36,11 @@ export async function buildReceipt(kind, doc) {
     m.totals.push(['Paid', doc.paid]);
     if (doc.change) m.totals.push(['Change', doc.change]);
     if (doc.balance) m.totals.push(['Balance due', doc.balance, true]);
+    if (doc.balance && doc.dueDate) m.info.push(['Due date', fmtDate(doc.dueDate)]);
     m.payment = doc.paid ? doc.paymentAccountName : 'Credit';
   } else if (kind === 'saleReturn' || kind === 'purchaseReturn') {
     m.info.push(['Against', doc.docNo], [kind === 'saleReturn' ? 'Customer' : 'Supplier', doc.partyName || '']);
-    m.items = doc.items.map((i) => ({ name: i.name, qty: i.qty, unit: i.unit, rate: i.rate, amount: i.amount }));
+    m.items = doc.items.map((i) => ({ name: i.name, qty: i.qty, unit: i.unit, rate: i.rate, amount: i.amount, batch: batchText(i) }));
     m.totals.push(['RETURN TOTAL', doc.total, true]);
     m.totals.push([kind === 'saleReturn' ? 'Refunded' : 'Refund received', doc.refund]);
     m.payment = doc.refund ? doc.refundAccountName : 'Adjusted to account';
@@ -62,6 +70,7 @@ export function toEscPos(m, width = 58) {
       p.wrap(i.name);
       p.lr(`  ${fmtQty(i.qty)} ${i.unit || ''} x ${fmtNum(i.rate)}`, fmtNum(i.amount));
       if (i.discount) p.lr('  Discount', '-' + fmtNum(i.discount));
+      if (i.batch) p.wrap('  ' + i.batch);
     });
   }
   p.hr();
@@ -81,7 +90,7 @@ export function toHTML(m, width = 58) {
     ${m.header.map((h, i) => `<div class="c ${i === 0 ? 'b big' : ''}">${esc(h)}</div>`).join('')}
     <hr><div class="c b">${esc(m.title)}</div>${m.void ? '<div class="c b">*** VOID ***</div>' : ''}
     <table>${m.info.map(([k, v]) => row(esc(k) + ':', esc(v))).join('')}</table>
-    ${m.items.length ? '<hr><table>' + m.items.map((i) => `<tr><td colspan="2">${esc(i.name)}</td></tr>${row(`&nbsp;&nbsp;${fmtQty(i.qty)} ${esc(i.unit || '')} x ${fmtNum(i.rate)}`, fmtNum(i.amount))}${i.discount ? row('&nbsp;&nbsp;Discount', '-' + fmtNum(i.discount)) : ''}`).join('') + '</table>' : ''}
+    ${m.items.length ? '<hr><table>' + m.items.map((i) => `<tr><td colspan="2">${esc(i.name)}</td></tr>${row(`&nbsp;&nbsp;${fmtQty(i.qty)} ${esc(i.unit || '')} x ${fmtNum(i.rate)}`, fmtNum(i.amount))}${i.discount ? row('&nbsp;&nbsp;Discount', '-' + fmtNum(i.discount)) : ''}${i.batch ? `<tr><td colspan="2">&nbsp;&nbsp;${esc(i.batch)}</td></tr>` : ''}`).join('') + '</table>' : ''}
     <hr><table>${m.totals.map(([k, v, strong]) => row(esc(k), `${v < 0 ? '-' : ''}${cur} ${fmtNum(Math.abs(v))}`, strong ? 'b' : '')).join('')}
     ${m.payment ? row('Payment', esc(m.payment)) : ''}</table>
     ${m.note ? `<hr><div>Note: ${esc(m.note)}</div>` : ''}

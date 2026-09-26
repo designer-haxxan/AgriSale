@@ -9,6 +9,8 @@ import * as Posting from '../services/posting.js';
 import * as Printer from '../printer/printer.js';
 import * as Scanner from '../scanner/scanner.js';
 import { partyPicker } from './parties.js';
+import { expiryBadge, expiryState, fmtExpiry } from '../core/views.js';
+import * as WA from '../services/whatsapp.js';
 
 const $ = window.jQuery;
 let st; let $root; let detachWedge = null; let payAccounts = [];
@@ -26,6 +28,21 @@ function taxRate() {
   if (st.editId) return st.taxRate || 0;
   const s = getSettings(); return s.taxEnabled ? num(s.taxRate) : 0;
 }
+const needsBatch = (l) => { const p = Catalog.product(l.productId); return !isSale() && p && p.trackStock !== false && p.hasExpiry !== false && !l.expiry; };
+function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+
+// Batch info shown under a cart line.
+function batchInfo(l, p) {
+  if (!p || p.trackStock === false) return '';
+  if (!isSale()) {
+    if (!l.expiry && !l.batchNo) return p.hasExpiry !== false ? ' · <span class="text-danger fw-semibold">enter batch &amp; expiry</span>' : '';
+    return ` · batch ${esc(l.batchNo || 'auto')} ${l.expiry ? expiryBadge(l.expiry, { short: true }) : ''}`;
+  }
+  const b = l.batchId ? Catalog.batches(p.id).find((x) => x.id === l.batchId) : Catalog.nextBatch(p.id, getSettings().allowExpiredSale);
+  if (!b) return '';
+  return ` · ${l.batchId ? '<i class="bi bi-pin-angle" title="Batch chosen manually"></i> ' : ''}${esc(b.batchNo)} ${expiryBadge(b.expiry, { short: true })}`;
+}
+
 function totals() {
   return Posting.previewDoc(st.lines, st.discount, taxRate()) || { subtotal: 0, discount: 0, tax: 0, total: 0, qtyTotal: 0, lines: [] };
 }
@@ -90,10 +107,10 @@ function renderLines() {
       const p = Catalog.product(l.productId);
       const low = isSale() && !st.editId && p && p.trackStock !== false && !s.allowNegativeStock && l.qty > (p.stock || 0);
       const amt = round2(l.qty * l.rate - (l.discount || 0));
-      return `<div class="cart-line" data-i="${i}">
+      return `<div class="cart-line ${needsBatch(l) ? 'needs-batch' : ''}" data-i="${i}">
         <div class="info btn-line" role="button" tabindex="0">
           <div class="name">${esc(l.name)}</div>
-          <div class="meta">${fmtNum(l.rate)}${l.discount ? ` · disc ${fmtNum(l.discount)}` : ''}${p && p.trackStock !== false ? ` · <span class="${low ? 'text-danger fw-semibold' : ''}">stock ${fmtQty(p.stock)}</span>` : ''}</div>
+          <div class="meta">${fmtNum(l.rate)}${l.discount ? ` · disc ${fmtNum(l.discount)}` : ''}${p && p.trackStock !== false ? ` · <span class="${low ? 'text-danger fw-semibold' : ''}">stock ${fmtQty(p.stock)}</span>` : ''}${batchInfo(l, p)}</div>
         </div>
         <div class="qty-ctl"><button class="btn-dec" aria-label="Decrease">−</button><input class="qty-in" inputmode="decimal" value="${fmtQty(l.qty).replace(/,/g, '')}" aria-label="Quantity"><button class="btn-inc" aria-label="Increase">+</button></div>
         <div class="amt money">${fmtNum(amt)}</div>
@@ -132,6 +149,7 @@ function renderGrid() {
       <div class="n">${esc(p.name)}</div>
       <div class="p">${fmtNum(priceOf(p))}</div>
       ${p.trackStock !== false ? `<div class="s">Stock: ${fmtQty(p.stock)}</div>` : ''}
+      ${Catalog.nearestExpiry(p.id) && expiryState(Catalog.nearestExpiry(p.id)) !== 'ok' ? `<div class="s">${expiryBadge(Catalog.nearestExpiry(p.id), { short: true })}</div>` : ''}
     </button>`).join('') : UI.emptyState('No products', 'box'));
 }
 
@@ -144,14 +162,18 @@ function priceOf(p) {
 function addProduct(p, qty = 1) {
   if (!p) return;
   if (!p.active) { UI.toast(`"${p.name}" is inactive`, 'warning'); return; }
-  const i = st.lines.findIndex((l) => l.productId === p.id && !l.discount);
+  // Sales merge into the FEFO line of the product; purchases merge into the line still waiting for its batch details.
+  const i = st.lines.findIndex((l) => l.productId === p.id && !l.discount && (isSale() ? !l.batchId : !l.batchNo && !l.expiry));
+  let isNew = false;
   if (i >= 0) {
     st.lines[i].qty = round3(st.lines[i].qty + qty);
     const [line] = st.lines.splice(i, 1); st.lines.unshift(line);
   } else {
     st.lines.unshift({ productId: p.id, name: p.name, unit: p.unit, qty, rate: priceOf(p), discount: 0 });
+    isNew = true;
   }
   renderLines();
+  if (isNew && needsBatch(st.lines[0])) { editLine(0); return; }
   $root.find('.cart-line').first().addClass('bg-success-subtle');
   setTimeout(() => $root.find('.cart-line').first().removeClass('bg-success-subtle'), 400);
   const s = getSettings();
@@ -174,29 +196,52 @@ const doSearch = debounce(() => {
   results = Catalog.searchProducts(q, { limit: 25 });
   $root.find('.search-results').removeClass('d-none').html(results.length ? results.map((p, i) => `
     <button class="list-row ${i === 0 ? 'bg-body-secondary' : ''}" data-i="${i}">
-      <div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${esc([p.sku, p.barcode].filter(Boolean).join(' · '))}</div></div>
-      <div class="end"><div class="fw-semibold money">${fmtNum(priceOf(p))}</div>${p.trackStock !== false ? `<div class="sub">stock ${fmtQty(p.stock)}</div>` : ''}</div>
+      <div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${esc([p.company, p.packSize, p.sku, p.barcode].filter(Boolean).join(' · '))}</div></div>
+      <div class="end"><div class="fw-semibold money">${fmtNum(priceOf(p))}</div>${p.trackStock !== false ? `<div class="sub">stock ${fmtQty(p.stock)}</div>` : ''}${isSale() && Catalog.nearestExpiry(p.id) && expiryState(Catalog.nearestExpiry(p.id)) !== 'ok' ? expiryBadge(Catalog.nearestExpiry(p.id), { short: true }) : ''}</div>
     </button>`).join('') : `<div class="p-3 text-body-secondary small">No products match "${esc(q)}".${Auth.can('product.edit') ? ' <a href="#" class="quick-add-link">Add new product</a>' : ''}</div>`);
 }, 120);
 
 async function editLine(i) {
   const l = st.lines[i];
   const p = Catalog.product(l.productId);
+  const tracked = p && p.trackStock !== false;
+  const allowExp = getSettings().allowExpiredSale;
+  // Sales: choose a batch or let FEFO decide. Purchases: batch number, expiry and manufacturing dates.
+  const batchField = !tracked ? '' : isSale()
+    ? `<div class="col-12"><label class="form-label">Batch</label><select name="batchId" class="form-select">
+        <option value="">Automatic — earliest expiry first (FEFO)</option>
+        ${Catalog.batches(p.id).filter((b) => b.qty > 0).map((b) => { const ex = expiryState(b.expiry) === 'expired';
+          return `<option value="${esc(b.id)}" ${l.batchId === b.id ? 'selected' : ''} ${ex && !allowExp ? 'disabled' : ''}>${esc(b.batchNo)} · ${b.expiry ? 'exp ' + esc(fmtExpiry(b.expiry)) : 'no expiry'} · ${fmtQty(b.qty)} ${esc(p.unit)}${ex ? ' · EXPIRED' : ''}</option>`; }).join('')}
+      </select></div>`
+    : `<div class="col-5"><label class="form-label">Batch no.</label><input name="batchNo" class="form-control" maxlength="40" value="${esc(l.batchNo || '')}" placeholder="auto"></div>
+       <div class="col-7"><label class="form-label">Expiry date${p.hasExpiry !== false ? ' *' : ''}</label><input type="date" name="expiry" class="form-control" value="${esc(l.expiry || '')}"></div>
+       <div class="col-7"><label class="form-label">Manufacturing date</label><input type="date" name="mfgDate" class="form-control" value="${esc(l.mfgDate || '')}" max="${today()}"></div>`;
   const r = await UI.formModal({
     title: l.name, submitLabel: 'Update',
-    body: `<div class="row g-2">
+    body: `<div class="row g-2">${batchField}
       <div class="col-4"><label class="form-label">Quantity</label><input name="qty" class="form-control form-control-lg" inputmode="decimal" value="${l.qty}"></div>
       <div class="col-4"><label class="form-label">${isSale() ? 'Rate' : 'Cost rate'}</label><input name="rate" class="form-control form-control-lg" inputmode="decimal" value="${l.rate}"></div>
       <div class="col-4"><label class="form-label">Discount</label><input name="discount" class="form-control form-control-lg" inputmode="decimal" value="${l.discount || 0}"></div>
       ${p ? `<div class="col-12 small text-body-secondary">Sale ${fmtNum(p.salePrice)} · Wholesale ${fmtNum(p.wholesalePrice)} · Cost ${fmtNum(p.purchasePrice)}${p.trackStock !== false ? ` · Stock ${fmtQty(p.stock)}` : ''}</div>` : ''}
       <div class="col-12"><button type="button" class="btn btn-outline-danger w-100 btn-remove-line"><i class="bi bi-trash me-1"></i>Remove item</button></div></div>`,
-    onShown: ($m) => { $m.find('[name=qty]').trigger('select'); $m.find('.btn-remove-line').on('click', () => { st.lines.splice(i, 1); renderLines(); $m.find('[data-bs-dismiss=modal]').first().trigger('click'); }); },
+    onShown: ($m) => { $m.find(needsBatch(l) ? '[name=batchNo]' : '[name=qty]').trigger('select'); $m.find('.btn-remove-line').on('click', () => { st.lines.splice(i, 1); renderLines(); $m.find('[data-bs-dismiss=modal]').first().trigger('click'); }); },
     onSubmit: (v) => {
       const qty = round3(num(v.qty)); const rate = round2(num(v.rate)); const discount = round2(num(v.discount));
       if (!(qty > 0)) throw new AppError('Quantity must be greater than zero.');
       if (rate < 0) throw new AppError('Rate cannot be negative.');
       if (discount < 0 || discount > qty * rate) throw new AppError('Discount must be between 0 and the line amount.');
-      return { qty, rate, discount };
+      const out = { qty, rate, discount };
+      if (tracked && isSale()) {
+        out.batchId = v.batchId || null;
+        const b = out.batchId && Catalog.batches(p.id).find((x) => x.id === out.batchId);
+        if (b && qty > b.qty && !getSettings().allowNegativeStock) throw new AppError(`Batch ${b.batchNo} has only ${fmtQty(b.qty)} ${p.unit}.`);
+      } else if (tracked) {
+        if (p.hasExpiry !== false && !v.expiry) throw new AppError('Enter the expiry date printed on the pack.');
+        if (v.expiry && v.mfgDate && v.mfgDate > v.expiry) throw new AppError('Manufacturing date must be before the expiry date.');
+        if (v.expiry && expiryState(v.expiry) === 'expired') UI.toast('Warning: this batch is already expired.', 'warning', 4000);
+        Object.assign(out, { batchNo: (v.batchNo || '').trim(), expiry: v.expiry || '', mfgDate: v.mfgDate || '' });
+      }
+      return out;
     },
   });
   if (r && st.lines[i] === l) { Object.assign(l, r); renderLines(); }
@@ -219,6 +264,8 @@ async function checkout() {
   const t = Posting.previewDoc(st.lines, 0, 0);
   if (!t) { UI.toast('Please fix invalid quantities/rates in the cart.', 'warning'); return; }
   if (!st.lines.length) return;
+  const missing = st.lines.findIndex(needsBatch);
+  if (missing >= 0) { UI.toast(`Enter batch & expiry for ${st.lines[missing].name}`, 'warning'); editLine(missing); return; }
   const sale = isSale();
   const s = getSettings();
   const canDate = Auth.can(sale ? 'sale.edit' : 'purchase.manage');
@@ -238,6 +285,9 @@ async function checkout() {
       <div class="d-flex flex-wrap gap-2 pay-quick mb-2"></div>
       <div class="alert py-2 mb-2 co-result"></div>
       ${!sale ? `<div class="mb-2"><label class="form-label">Supplier invoice no.</label><input name="refNo" class="form-control" value="${esc(st.refNo)}"></div>` : ''}
+      ${sale ? `<div class="mb-2 co-due d-none"><label class="form-label">Credit due date <span class="text-body-secondary small">(for reminders)</span></label>
+        <div class="input-group"><input type="date" name="dueDate" class="form-control" value="${esc(st.dueDate || (num(s.creditDays) > 0 ? addDays(num(s.creditDays)) : ''))}" min="${today()}">
+        ${[30, 90, 180].map((d) => `<button type="button" class="btn btn-outline-secondary co-due-add" data-d="${d}">${d}d</button>`).join('')}</div></div>` : ''}
       <div class="row g-2">
         ${canDate ? `<div class="col-6"><label class="form-label">Date</label><input type="date" name="date" class="form-control" value="${esc(st.date)}" max="${today()}"></div>` : ''}
         <div class="${canDate ? 'col-6' : 'col-12'}"><label class="form-label">Note</label><input name="note" class="form-control" value="${esc(st.note)}"></div>
@@ -267,11 +317,13 @@ async function checkout() {
     if (!sale && diff > 0) cls = 'danger';
     $m.find('.co-result').attr('class', `alert alert-${cls} py-2 mb-2 co-result`).html(msg);
     $m.find('.co-complete').prop('disabled', cls === 'danger');
+    $m.find('.co-due').toggleClass('d-none', !(sale && st.partyId && diff < 0));
     const quick = new Set([c.total]);
     if (sale) [10, 50, 100, 500, 1000, 5000].forEach((u) => { const v = Math.ceil(c.total / u) * u; if (v > c.total && quick.size < 5) quick.add(v); });
     $m.find('.pay-quick').html([...quick].map((v, i) => `<button type="button" class="btn btn-outline-primary" data-v="${v}">${i === 0 ? 'Exact' : fmtNum(v)}</button>`).join('')
       + (st.partyId ? `<button type="button" class="btn btn-outline-secondary" data-v="0">${sale ? 'Credit' : 'Unpaid'}</button>` : ''));
   };
+  $m.on('click', '.co-due-add', function () { $m.find('[name=dueDate]').val(addDays(+this.dataset.d)); });
   $m.on('input', '[name=discount]', update);
   $m.on('input', '[name=tendered]', () => { tenderedTouched = true; update(); });
   $m.on('click', '.pay-quick [data-v]', function () { tenderedTouched = true; $m.find('[name=tendered]').val(this.dataset.v); update(); });
@@ -306,10 +358,11 @@ async function checkout() {
       st.note = $m.find('[name=note]').val() || '';
       if (canDate) st.date = $m.find('[name=date]').val() || today();
       if (!sale) st.refNo = $m.find('[name=refNo]').val() || '';
+      if (sale) st.dueDate = $m.find('[name=dueDate]').val() || '';
       const input = {
         id: st.id, editId: st.editId, date: st.date, items: st.lines, discount: st.discount, taxRate: taxRate(),
         tendered: num($m.find('[name=tendered]').val()), paymentAccountId: account, note: st.note, refNo: st.refNo,
-        customerId: sale ? st.partyId : undefined, supplierId: sale ? undefined : st.partyId,
+        customerId: sale ? st.partyId : undefined, supplierId: sale ? undefined : st.partyId, dueDate: sale ? st.dueDate : undefined,
       };
       const { doc, duplicate } = sale ? await Posting.saveSale(input) : await Posting.savePurchase(input);
       const doPrint = sale && $m.find('#co-print').prop('checked');
@@ -333,17 +386,21 @@ async function checkout() {
 
 function afterSave(doc) {
   const sale = isSale();
+  const cust = sale && doc.customerId ? Catalog.party('customers', doc.customerId) : null;
+  const waFirst = sale && getSettings().whatsapp.offerAfterSale && WA.partyPhone(cust);
   const m = UI.modal({
     title: sale ? 'Sale completed' : 'Purchase saved', fullscreenMobile: false, scrollable: false,
     body: `<div class="text-center"><i class="bi bi-check-circle-fill text-success display-5"></i>
       <div class="h5 mt-2 mb-0">${esc(doc.number)}</div><div class="text-body-secondary">${cur()} ${fmtNum(doc.total)}</div>
       ${doc.change ? `<div class="alert alert-success mt-3 mb-0 py-2 fs-5">Change: <b>${cur()} ${fmtNum(doc.change)}</b></div>` : ''}
       ${doc.balance ? `<div class="alert alert-warning mt-3 mb-0 py-2">Balance due: <b>${cur()} ${fmtNum(doc.balance)}</b></div>` : ''}</div>`,
-    footer: `<button class="btn btn-outline-secondary btn-print"><i class="bi bi-printer me-1"></i>Print</button>
+    footer: `${sale ? `<button class="btn ${waFirst ? 'btn-success' : 'btn-outline-success'} btn-wa"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>` : ''}
+      <button class="btn btn-outline-secondary btn-print"><i class="bi bi-printer me-1"></i>Print</button>
       <a class="btn btn-outline-secondary" href="#/${sale ? 'sales' : 'purchases'}/${doc.id}"><i class="bi bi-eye me-1"></i>View</a>
       <button class="btn btn-primary flex-grow-1" data-bs-dismiss="modal">New ${sale ? 'sale' : 'purchase'}</button>`,
   });
   m.$el.find('.btn-print').on('click', () => Printer.printDocument(sale ? 'sale' : 'purchase', doc));
+  m.$el.find('.btn-wa').on('click', async () => { m.close(); await m.closed; await WA.shareSale(doc); });
   m.$el.find('a').on('click', () => m.close());
   m.closed.then(() => $root?.find('.pos-q').trigger('focus'));
 }
@@ -390,8 +447,9 @@ export default {
       const items = (await idb.getAllByIndex(mode === 'sale' ? 'saleItems' : 'purchaseItems', mode === 'sale' ? 'saleId' : 'purchaseId', doc.id)).sort((a, b) => a.line - b.line);
       st = { ...fresh(mode), id: doc.id, editId: doc.id, editNumber: doc.number, date: doc.date, partyId: doc.customerId || doc.supplierId || null,
         partyName: doc.customerId ? doc.customerName : doc.supplierId ? doc.supplierName : '', discount: doc.discount, note: doc.note || '', refNo: doc.refNo || '',
-        tendered: mode === 'sale' ? doc.tendered : doc.paid, taxRate: doc.taxRate || 0, payAccount: doc.paymentAccountId,
-        lines: items.map((i) => ({ productId: i.productId, name: i.name, unit: i.unit, qty: i.qty, rate: i.rate, discount: i.discount })) };
+        tendered: mode === 'sale' ? doc.tendered : doc.paid, taxRate: doc.taxRate || 0, payAccount: doc.paymentAccountId, dueDate: doc.dueDate || '',
+        lines: items.map((i) => ({ productId: i.productId, name: i.name, unit: i.unit, qty: i.qty, rate: i.rate, discount: i.discount,
+          ...(mode === 'sale' ? { batchId: i.pickedBatchId || null } : { batchNo: i.batchNo || '', expiry: i.expiry || '', mfgDate: i.mfgDate || '' }) })) };
       setTitle(`Edit ${doc.number}`);
     } else {
       st = fresh(mode);

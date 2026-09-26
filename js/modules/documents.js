@@ -2,12 +2,21 @@
 import * as idb from '../db/idb.js';
 import * as UI from '../core/ui.js';
 import { esc, fmtNum, fmtQty, fmtDate, fmtDateTime, fmtTime, today, uuid, num, round2, AppError, debounce } from '../core/utils.js';
-import { money, dateFilter, bindDateFilter, pager } from '../core/views.js';
+import { money, dateFilter, bindDateFilter, pager, fmtExpiry } from '../core/views.js';
 import * as Auth from '../services/auth.js';
 import * as Posting from '../services/posting.js';
 import * as Printer from '../printer/printer.js';
 
 const $ = window.jQuery;
+const loadWA = () => import('../services/whatsapp.js');
+
+// "Batch X · Exp …" details under a document line.
+function batchLine(i) {
+  const list = i.batches?.length ? i.batches : i.batchNo ? [{ batchNo: i.batchNo, expiry: i.expiry, qty: i.qty }] : [];
+  const shown = list.filter((b) => b.batchNo !== 'OPENING' || b.expiry);
+  if (!shown.length) return '';
+  return `<div class="small text-body-secondary">${shown.map((b) => `Batch ${esc(b.batchNo)}${b.expiry ? ` · exp ${esc(fmtExpiry(b.expiry))}` : ''}${list.length > 1 ? ` (${fmtQty(b.qty)})` : ''}`).join('<br>')}</div>`;
+}
 
 const K = {
   sale: { store: 'sales', items: 'saleItems', fk: 'saleId', list: 'sales', party: 'customerName', partyId: 'customerId', partyRoute: 'customers', label: 'Sale', retKind: 'saleReturn', retStore: 'saleReturns', editRoute: 'pos' },
@@ -70,7 +79,7 @@ async function renderDoc(el, kind, id) {
   const canReturn = !isVoid && Auth.can(kind === 'sale' ? 'sale.return' : 'purchase.manage');
   const canVoid = !isVoid && !liveReturns.length && Auth.can(kind === 'sale' ? 'sale.void' : 'purchase.manage');
   const partyLink = d[k.partyId] ? `<a href="#/${k.partyRoute}/${encodeURIComponent(d[k.partyId])}">${esc(d[k.party])}</a>` : esc(d[k.party]);
-  $el.html(UI.pageHeader(d.number, `<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i><span class="d-none d-sm-inline"> Print</span></button>
+  $el.html(UI.pageHeader(d.number, `${kind === 'sale' ? '<button class="btn btn-success btn-sm btn-wa"><i class="bi bi-whatsapp"></i><span class="d-none d-sm-inline"> WhatsApp</span></button>' : ''}<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i><span class="d-none d-sm-inline"> Print</span></button>
       <div class="dropdown"><button class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-label="Actions"><i class="bi bi-three-dots-vertical"></i></button><ul class="dropdown-menu dropdown-menu-end">
         ${canEdit ? `<li><a class="dropdown-item" href="#/${k.editRoute}/edit/${encodeURIComponent(id)}"><i class="bi bi-pencil me-2"></i>Edit</a></li>` : ''}
         ${canReturn ? `<li><button class="dropdown-item btn-return"><i class="bi bi-arrow-return-left me-2"></i>Return items</button></li>` : ''}
@@ -87,7 +96,7 @@ async function renderDoc(el, kind, id) {
           </div>
           <div class="table-responsive"><table class="table table-sm table-report mb-0">
             <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Disc</th><th class="num">Amount</th></tr></thead>
-            <tbody>${items.map((i) => `<tr><td>${esc(i.name)}${i.sku ? `<div class="small text-body-secondary">${esc(i.sku)}</div>` : ''}</td><td class="num">${fmtQty(i.qty)} ${esc(i.unit || '')}</td><td class="num">${fmtNum(i.rate)}</td><td class="num">${i.discount ? fmtNum(i.discount) : ''}</td><td class="num">${fmtNum(i.amount)}</td></tr>`).join('')}</tbody>
+            <tbody>${items.map((i) => `<tr><td>${esc(i.name)}${i.sku ? `<div class="small text-body-secondary">${esc(i.sku)}</div>` : ''}${batchLine(i)}</td><td class="num">${fmtQty(i.qty)} ${esc(i.unit || '')}</td><td class="num">${fmtNum(i.rate)}</td><td class="num">${i.discount ? fmtNum(i.discount) : ''}</td><td class="num">${fmtNum(i.amount)}</td></tr>`).join('')}</tbody>
           </table></div></div></div>
         ${returns.length ? `<h2 class="h6">Returns</h2><div class="list-card mb-3">${returns.map((r) => `<a class="list-row" href="#/returns/${kind}/${encodeURIComponent(r.id)}"><div class="main"><div class="title">${esc(r.number)} ${r.status === 'void' ? '<span class="badge text-bg-danger">Void</span>' : ''}</div><div class="sub">${fmtDate(r.date)} · ${r.items.length} item(s)</div></div><div class="end money">${fmtNum(r.total)}</div></a>`).join('')}</div>` : ''}
       </div>
@@ -101,6 +110,7 @@ async function renderDoc(el, kind, id) {
             <tr><td>Paid (${esc(d.paymentAccountName)})</td><td class="text-end money">${fmtNum(d.paid)}</td></tr>
             ${d.change ? `<tr><td>Change given</td><td class="text-end money">${fmtNum(d.change)}</td></tr>` : ''}
             <tr class="${d.balance > 0.004 ? 'text-warning-emphasis fw-semibold' : ''}"><td>Balance due</td><td class="text-end money">${fmtNum(d.balance)}</td></tr>
+            ${d.dueDate && d.balance > 0.004 ? `<tr><td>Due date</td><td class="text-end ${d.dueDate < today() ? 'text-danger fw-semibold' : ''}">${fmtDate(d.dueDate)}</td></tr>` : ''}
             ${liveReturns.length ? `<tr><td>Returned</td><td class="text-end money">−${fmtNum(liveReturns.reduce((s, r) => s + r.total, 0))}</td></tr>` : ''}
           </table></div></div>
         <div class="card"><div class="card-body small">
@@ -112,6 +122,7 @@ async function renderDoc(el, kind, id) {
         </div></div>
       </div></div>`);
   $el.on('click', '.btn-print', () => Printer.printDocument(kind, d));
+  $el.on('click', '.btn-wa', async () => (await loadWA()).shareSale(d));
   $el.on('click', '.btn-return', async () => { const r = await returnDialog(kind, d); if (r) location.hash = `#/returns/${kind}/${r.id}`; });
   $el.on('click', '.btn-void', async () => {
     const reason = await UI.formModal({ title: `Void ${d.number}`, submitLabel: 'Void document', submitClass: 'btn-danger',
@@ -193,17 +204,18 @@ async function renderReturn(el, kind, id) {
   if (!r) { $el.html(UI.pageHeader('Return', '', '#/returns') + UI.emptyState('Return not found', 'x-circle')); return; }
   const retKind = kind === 'sale' ? 'saleReturn' : 'purchaseReturn';
   const canVoid = r.status !== 'void' && Auth.can(kind === 'sale' ? 'sale.void' : 'purchase.manage');
-  $el.html(UI.pageHeader(r.number, `<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i> Print</button>${canVoid ? '<button class="btn btn-outline-danger btn-sm btn-void"><i class="bi bi-x-circle"></i> Void</button>' : ''}`, '#/returns') + `
+  $el.html(UI.pageHeader(r.number, `${kind === 'sale' ? '<button class="btn btn-success btn-sm btn-wa"><i class="bi bi-whatsapp"></i><span class="d-none d-sm-inline"> WhatsApp</span></button>' : ''}<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i> Print</button>${canVoid ? '<button class="btn btn-outline-danger btn-sm btn-void"><i class="bi bi-x-circle"></i> Void</button>' : ''}`, '#/returns') + `
     ${r.status === 'void' ? `<div class="alert alert-danger">Voided ${fmtDateTime(r.voidedAt)} by ${esc(r.voidedBy)}</div>` : ''}
     <div class="card"><div class="card-body">
       <div class="mb-2">${kind === 'sale' ? 'Sale' : 'Purchase'} return against <a href="#/${K[kind].list}/${encodeURIComponent(r[K[kind].fk])}">${esc(r.docNo)}</a> · ${esc(r.partyName || '')} · ${fmtDate(r.date)}</div>
       <div class="table-responsive"><table class="table table-sm table-report"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
-      <tbody>${r.items.map((i) => `<tr><td>${esc(i.name)}</td><td class="num">${fmtQty(i.qty)} ${esc(i.unit || '')}</td><td class="num">${fmtNum(i.rate)}</td><td class="num">${fmtNum(i.amount)}</td></tr>`).join('')}</tbody>
+      <tbody>${r.items.map((i) => `<tr><td>${esc(i.name)}${batchLine(i)}</td><td class="num">${fmtQty(i.qty)} ${esc(i.unit || '')}</td><td class="num">${fmtNum(i.rate)}</td><td class="num">${fmtNum(i.amount)}</td></tr>`).join('')}</tbody>
       <tfoot><tr class="fw-bold"><td colspan="3">Total</td><td class="num">${money(r.total)}</td></tr>
       <tr><td colspan="3">Refund (${esc(r.refundAccountName)})</td><td class="num">${fmtNum(r.refund)}</td></tr></tfoot></table></div>
       <div class="small text-body-secondary">By ${esc(r.userName)} · ${fmtDateTime(r.createdAt)}${r.note ? ' · ' + esc(r.note) : ''}</div>
     </div></div>`);
   $el.on('click', '.btn-print', () => Printer.printDocument(retKind, r));
+  $el.on('click', '.btn-wa', async () => (await loadWA()).shareReturn(kind, r));
   $el.on('click', '.btn-void', async () => {
     if (!await UI.confirmDialog(`Void ${r.number}? Stock and ledger effects of this return will be reversed.`, { okLabel: 'Void', okClass: 'btn-danger' })) return;
     try { await Posting.voidDocument(retKind, id); UI.toast('Return voided'); renderReturn(el, kind, id); } catch (e) { UI.toastError(e); }

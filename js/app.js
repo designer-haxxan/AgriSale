@@ -19,8 +19,10 @@ const ROUTES = {
   returns: [() => import('./modules/documents.js'), 'Returns', null, 'arrow-return-left', 'Main'],
   products: [() => import('./modules/products.js'), 'Products', null, 'box-seam', 'Inventory'],
   stock: [() => import('./modules/stock.js'), 'Stock', null, 'boxes', 'Inventory'],
+  expiry: [() => import('./modules/stock.js'), 'Expiry & batches', null, 'hourglass-split', 'Inventory'],
   customers: [() => import('./modules/parties.js'), 'Customers', null, 'people', 'Parties'],
   suppliers: [() => import('./modules/parties.js'), 'Suppliers', 'purchase.manage', 'truck', 'Parties'],
+  whatsapp: [() => import('./modules/whatsapp.js'), 'WhatsApp', null, 'whatsapp', 'Parties'],
   vouchers: [() => import('./modules/vouchers.js'), 'Cash Book & Payments', 'voucher.create', 'cash-coin', 'Accounts'],
   accounts: [() => import('./modules/accounts.js'), 'Accounts', 'account.manage', 'bank', 'Accounts'],
   reports: [() => import('./reports/reports.js'), 'Reports', 'reports.view', 'bar-chart-line', 'Accounts'],
@@ -110,7 +112,7 @@ async function route() {
   if (!Auth.user()) return;
   if (checkExpiry()) return;
   const token = ++routeToken;
-  const parts = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('/').map(decodeURIComponent);
+  const parts = (location.hash.replace(/^#\/?/, '').split('?')[0] || 'dashboard').split('/').map(decodeURIComponent);
   const name = ROUTES[parts[0]] ? parts[0] : 'dashboard';
   const [loader, title, perm] = ROUTES[name];
   try { currentModule?.destroy?.(); } catch (e) { console.warn(e); }

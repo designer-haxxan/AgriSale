@@ -2,7 +2,7 @@
 import * as idb from '../db/idb.js';
 import * as UI from '../core/ui.js';
 import { esc, fmtNum, fmtQty, fmtDate, fmtTime, today, monthStart, round2, round3, toCSV, downloadFile } from '../core/utils.js';
-import { money, balText, ledgerTable, REF_LABELS, rangeFor } from '../core/views.js';
+import { money, balText, ledgerTable, REF_LABELS, rangeFor, expiryDays } from '../core/views.js';
 import { getSettings } from '../core/settings.js';
 import * as Auth from '../services/auth.js';
 import * as Catalog from '../services/catalog.js';
@@ -144,6 +144,25 @@ export const REPORTS = {
     title: 'Supplier ledger', icon: 'truck', group: 'Parties', perm: 'purchase.manage', filters: ['range', 'supplier*'],
     run: async ({ from, to, supplier }) => ledgerReport('S:' + supplier, from, to, false, Catalog.party('suppliers', supplier)?.name),
   },
+  'credit-aging': {
+    title: 'Credit aging / overdue', icon: 'hourglass-bottom', group: 'Parties', filters: ['asof'],
+    async run({ date }) {
+      const aging = await Posting.customerAging(date);
+      const rows = [];
+      for (const [id, a] of aging) {
+        if (a.balance < 0.005) continue;
+        const c = Catalog.party('customers', id);
+        const b = [0, 0, 0, 0];
+        for (const o of a.open) b[o.days <= 30 ? 0 : o.days <= 60 ? 1 : o.days <= 90 ? 2 : 3] += o.amount;
+        rows.push([{ v: c?.name || id, href: `#/customers/${id}` }, c?.phone || '', a.balance, round2(b[0]), round2(b[1]), round2(b[2]), round2(b[3]), a.overdue, a.oldestDue]);
+      }
+      rows.sort((x, y) => y[7] - x[7] || y[2] - x[2]);
+      return { summary: [['Customers', rows.length], ['Receivable', money(sum(rows, (r) => r[2]))], ['Overdue', money(sum(rows, (r) => r[7]))], ['Older than 90 days', money(sum(rows, (r) => r[6]))]],
+        note: 'Payments and returns are applied to the oldest bills first. Age is counted from the bill date; overdue uses the due date set at sale time (or the default credit period).',
+        cols: [C('Customer'), C('Phone'), C('Balance', 'money'), C('0–30 days', 'money'), C('31–60', 'money'), C('61–90', 'money'), C('90+', 'money'), C('Overdue', 'money'), C('Due since', 'date')],
+        rows, foot: ['Total', '', sum(rows, (r) => r[2]), sum(rows, (r) => r[3]), sum(rows, (r) => r[4]), sum(rows, (r) => r[5]), sum(rows, (r) => r[6]), sum(rows, (r) => r[7]), ''] };
+    },
+  },
   receivables: {
     title: 'Receivables', icon: 'person-down', group: 'Parties', filters: ['asof'],
     async run({ date }) {
@@ -204,6 +223,41 @@ export const REPORTS = {
         foot: ['Total', '', sum(rows, (r) => r[2]), '', sum(rows, (r) => r[4]), sum(rows, (r) => r[5])] };
     },
   },
+  expiry: {
+    title: 'Expiry & batch stock', icon: 'hourglass-split', group: 'Inventory', filters: ['asof'],
+    async run({ date }) {
+      const near = Number(getSettings().nearExpiryDays || 0);
+      const rows = Catalog.allBatches().filter((b) => b.qty > 0).map((b) => ({ b, p: Catalog.product(b.productId) })).filter((x) => x.p)
+        .sort((a, b) => (a.b.expiry || '9999').localeCompare(b.b.expiry || '9999'))
+        .map(({ b, p }) => {
+          const d = expiryDays(b.expiry, date);
+          const status = d === null ? 'No expiry' : d < 0 ? 'EXPIRED' : d <= near ? 'Expiring soon' : 'OK';
+          return [{ v: p.name, href: `#/stock/${p.id}` }, p.company || '', b.batchNo, b.expiry, d === null ? '' : d, status, b.qty, round2(b.qty * (b.cost || p.purchasePrice || 0))];
+        });
+      const val = (st) => sum(rows.filter((r) => r[5] === st), (r) => r[7]);
+      return { summary: [['Batches', rows.length], ['Expired value', money(val('EXPIRED'))], [`Expiring ≤ ${near} days`, money(val('Expiring soon'))], ['Total value (cost)', money(sum(rows, (r) => r[7]))]],
+        note: 'Current batch quantities. Days left are counted from the selected date.',
+        cols: [C('Product'), C('Company'), C('Batch'), C('Expiry', 'date'), C('Days left', 'qty'), C('Status'), C('Qty', 'qty'), C('Value', 'money')], rows,
+        foot: ['Total', '', '', '', '', '', sum(rows, (r) => r[6]), sum(rows, (r) => r[7])] };
+    },
+  },
+  'batch-trace': {
+    title: 'Batch traceability (sales)', icon: 'upc', group: 'Inventory', filters: ['range'],
+    async run({ from, to }) {
+      const [items, sales] = await Promise.all([byDate('saleItems', from, to), byDate('sales', from, to)]);
+      const cust = new Map(sales.map((s) => [s.id, s]));
+      const rows = [];
+      for (const i of items) {
+        const s = cust.get(i.saleId);
+        if (!s || s.status === 'void') continue;
+        for (const b of i.batches || []) rows.push([i.date, { v: i.saleNo, href: `#/sales/${i.saleId}` }, s.customerName, i.name, b.batchNo, b.expiry, b.qty]);
+      }
+      rows.sort((a, b) => a[0].localeCompare(b[0]) || String(a[3]).localeCompare(String(b[3])));
+      return { summary: [['Lines', rows.length], ['Batches', new Set(rows.map((r) => r[3] + '|' + r[4])).size]],
+        note: 'Which customer received which batch — use it for product recalls or complaints. Search the printed/CSV output for a batch number.',
+        cols: [C('Date', 'date'), C('Invoice'), C('Customer'), C('Product'), C('Batch'), C('Expiry', 'date'), C('Qty', 'qty')], rows };
+    },
+  },
   profit: {
     title: 'Profit summary', icon: 'graph-up-arrow', group: 'Accounts', perm: 'reports.profit', filters: ['range'],
     async run({ from, to }) {
@@ -225,7 +279,7 @@ export const REPORTS = {
       const rows = [['Sales (excl. tax, after discounts)', grossSales], ['Less: sales returns', -returns], ['Net sales', netSales], ['Less: cost of goods sold', -cogs], ['Gross profit', gross],
         ['Add: other income', otherIncome], ['Less: expenses', -expenses], ['Less: stock adjustments (loss) / gain', -writeOff], ['Net profit', net]];
       return { summary: [['Net sales', money(netSales)], ['Gross profit', money(gross)], ['Gross margin', netSales ? fmtNum((gross / netSales) * 100) + '%' : '—'], ['Net profit', money(net)]],
-        note: 'Cost of goods sold uses the purchase price recorded on each sale line at the time of sale.',
+        note: 'Cost of goods sold uses the cost of the batches each sale line was taken from.',
         cols: [C('Item'), C('Amount', 'money')], rows, boldRows: [2, 4, 8] };
     },
   },

@@ -6,6 +6,7 @@ import { getSettings, replaceSettings } from '../core/settings.js';
 import { nowISO, round3, uuid, AppError } from '../core/utils.js';
 import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
+import { normalizeBatches } from '../db/batches.js';
 
 export const FORMAT = 'saleapp-pos-backup';
 
@@ -15,7 +16,10 @@ const REQUIRED = {
   sales: ['number', 'date', 'total'], saleItems: ['saleId', 'productId', 'qty'], purchases: ['number', 'date', 'total'], purchaseItems: ['purchaseId', 'productId', 'qty'],
   saleReturns: ['number', 'date', 'saleId', 'items'], purchaseReturns: ['number', 'date', 'purchaseId', 'items'], vouchers: ['number', 'date', 'amount'],
   entries: ['txnId', 'accountId', 'date', 'debit', 'credit'], stockMoves: ['productId', 'date', 'qty', 'refId'], adjustments: ['number', 'date', 'items'],
+  batches: ['productId', 'batchNo'], waLog: ['at'],
 };
+// Collections added in later backup versions; older backups simply don't have them.
+const ADDED_LATER = new Set(['batches', 'waLog']);
 const DOC_STORES = { sales: ['saleItems', 'saleId'], purchases: ['purchaseItems', 'purchaseId'], saleReturns: null, purchaseReturns: null, vouchers: null, adjustments: null };
 const NUMBERED = ['sales', 'purchases', 'saleReturns', 'purchaseReturns', 'vouchers', 'adjustments'];
 
@@ -53,7 +57,10 @@ export function validateBackup(obj) {
   const counts = {};
   for (const store of DATA_STORES) {
     const list = obj.data[store];
-    if (list === undefined) { warnings.push(`Collection "${store}" is missing (treated as empty).`); counts[store] = 0; continue; }
+    if (list === undefined) {
+      if (!(ADDED_LATER.has(store) && obj.backupVersion < 2)) warnings.push(`Collection "${store}" is missing (treated as empty).`);
+      counts[store] = 0; continue;
+    }
     if (!Array.isArray(list)) { errors.push(`Collection "${store}" is not a list.`); continue; }
     counts[store] = list.length;
     const keyField = store === 'meta' ? 'key' : 'id';
@@ -160,7 +167,9 @@ export async function restore(obj, mode, { includeSettings = true } = {}) {
       for (const m of data.stockMoves) if (useBackup.get(moveParent(m))) await t.put('stockMoves', m);
       for (const i of data.saleItems) if (useBackup.get('sales:' + i.saleId)) await t.put('saleItems', i);
       for (const i of data.purchaseItems) if (useBackup.get('purchases:' + i.purchaseId)) await t.put('purchaseItems', i);
-      for (const s of ['categories', 'holds', 'auditLog']) {
+      // Batches: take the backup's record when newer; quantities are recomputed from stock moves below.
+      for (const b of data.batches) { const local = await t.get('batches', b.id); if (!local || stamp(b) > stamp(local)) await t.put('batches', b); }
+      for (const s of ['categories', 'holds', 'auditLog', 'waLog']) {
         for (const r of data[s]) { const local = await t.get(s, r.id); if (!local || stamp(r) > stamp(local)) await t.put(s, r); }
       }
       for (const m of data.meta) {
@@ -171,6 +180,7 @@ export async function restore(obj, mode, { includeSettings = true } = {}) {
     }
     await ensureSystemAccounts(t);
     await recomputeStock(t);
+    await normalizeBatches(t);
     await t.add('auditLog', { id: uuid(), at: nowISO(), userId: Auth.user()?.id, userName: Auth.user()?.name, action: 'backup_restored', details: { mode, from: obj.createdAt } });
   });
   if (includeSettings && obj.settings && mode === 'replace') replaceSettings(obj.settings);

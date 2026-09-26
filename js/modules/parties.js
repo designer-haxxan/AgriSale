@@ -1,6 +1,6 @@
 // Customers & suppliers: list, create/edit, ledger/statement, payments.
 import * as UI from '../core/ui.js';
-import { esc, today, monthStart, debounce } from '../core/utils.js';
+import { esc, today, monthStart, debounce, fmtDate, fmtNum } from '../core/utils.js';
 import { balText, dateFilter, bindDateFilter, ledgerTable, pager } from '../core/views.js';
 import * as Auth from '../services/auth.js';
 import * as Catalog from '../services/catalog.js';
@@ -19,9 +19,10 @@ export async function editParty(kind, party = null) {
     title: party ? `Edit ${one.toLowerCase()}` : `New ${one.toLowerCase()}`,
     body: `<div class="row g-2">
       <div class="col-12"><label class="form-label">Name *</label><input name="name" class="form-control" required maxlength="120" value="${esc(p.name)}"></div>
-      <div class="col-6"><label class="form-label">Phone</label><input name="phone" type="tel" class="form-control" value="${esc(p.phone)}"></div>
-      <div class="col-6"><label class="form-label">Email</label><input name="email" type="email" class="form-control" value="${esc(p.email)}"></div>
-      <div class="col-12"><label class="form-label">Address</label><input name="address" class="form-control" value="${esc(p.address)}"></div>
+      <div class="col-6"><label class="form-label">Phone</label><input name="phone" type="tel" class="form-control" value="${esc(p.phone)}" placeholder="03xx xxxxxxx"></div>
+      <div class="col-6"><label class="form-label">WhatsApp <span class="small text-body-secondary">(if different)</span></label><input name="whatsapp" type="tel" class="form-control" value="${esc(p.whatsapp)}"></div>
+      <div class="col-12"><label class="form-label">${kind === 'customers' ? 'Village / address' : 'Address'}</label><input name="address" class="form-control" value="${esc(p.address)}"></div>
+      <div class="col-12"><label class="form-label">Email</label><input name="email" type="email" class="form-control" value="${esc(p.email)}"></div>
       <div class="col-6"><label class="form-label">Opening ${LABEL[kind][2].toLowerCase()}</label><input name="openingBalance" class="form-control" inputmode="decimal" value="${p.openingBalance || ''}" placeholder="0"><div class="form-text">Use a negative amount for an advance.</div></div>
       <div class="col-6"><label class="form-label">As of date</label><input name="openingDate" type="date" class="form-control" value="${esc(p.openingDate || today())}"></div>
       <div class="col-12"><label class="form-label">Note</label><textarea name="note" class="form-control" rows="2">${esc(p.note)}</textarea></div>
@@ -103,8 +104,15 @@ async function renderDetail(el, kind, id) {
         ${canPay ? `<button class="btn btn-success btn-pay"><i class="bi bi-cash-coin me-1"></i>${kind === 'customers' ? 'Receive payment' : 'Make payment'}</button>` : ''}
         ${kind === 'customers' && Auth.can('sale.create') ? `<button class="btn btn-outline-primary btn-sell"><i class="bi bi-cart-plus me-1"></i>New sale</button>` : ''}
         <button class="btn btn-outline-secondary btn-print"><i class="bi bi-printer me-1"></i>Statement</button>
+        <div class="dropdown"><button class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            ${kind === 'customers' ? '<li><button class="dropdown-item btn-wa-remind"><i class="bi bi-bell me-2"></i>Balance / credit reminder</button></li>' : ''}
+            <li><button class="dropdown-item btn-wa-stmt"><i class="bi bi-journal-text me-2"></i>Ledger statement (selected period)</button></li>
+            <li><button class="dropdown-item btn-wa-chat"><i class="bi bi-chat-dots me-2"></i>Blank message</button></li>
+          </ul></div>
       </div></div></div>
     ${p.active ? '' : '<div class="alert alert-secondary py-2">This account is inactive.</div>'}
+    <div class="aging mb-3"></div>
     <h2 class="h6">Ledger</h2>
     ${dateFilter(from, to)}
     <div class="card"><div class="card-body p-0 ledger"></div></div>`);
@@ -114,6 +122,11 @@ async function renderDetail(el, kind, id) {
     $el.find('.bal').html(balText(total, debitNormal));
     led = await Posting.ledger(acc, from, to);
     $el.find('.ledger').html(ledgerTable(led, { debitNormal }));
+    if (kind === 'customers') {
+      const a = (await Posting.customerAging()).get(id);
+      $el.find('.aging').html(a && a.open.length ? `<h2 class="h6">Unpaid bills ${a.overdue > 0.004 ? `<span class="badge text-bg-danger">Overdue ${fmtNum(a.overdue)}</span>` : ''}</h2>
+        <div class="list-card">${a.open.map((o) => `<div class="list-row"><div class="main"><div class="title">${esc(o.refNo || 'Opening balance')}</div><div class="sub">${fmtDate(o.date)} · ${o.days} day(s) old${o.dueDate ? ` · due <span class="${o.dueDate < today() ? 'text-danger fw-semibold' : ''}">${fmtDate(o.dueDate)}</span>` : ''}</div></div><div class="end fw-semibold money">${fmtNum(o.amount)}</div></div>`).join('')}</div>` : '');
+    }
   };
   await load();
   bindDateFilter($el, (f, t) => { from = f; to = t; load(); });
@@ -130,6 +143,10 @@ async function renderDetail(el, kind, id) {
     localStorage.setItem('pos.draft.sale', JSON.stringify({ ...JSON.parse(localStorage.getItem('pos.draft.sale') || '{}'), mode: 'sale', partyId: id, partyName: p.name }));
     location.hash = '#/pos';
   });
+  const WA = () => import('../services/whatsapp.js');
+  $el.on('click', '.btn-wa-remind', async () => (await WA()).sendReminder(id));
+  $el.on('click', '.btn-wa-stmt', async () => (await WA()).sendStatement(kind, id, from, to));
+  $el.on('click', '.btn-wa-chat', async () => { const w = await WA(); w.compose({ name: p.name, phone: w.partyPhone(Catalog.party(kind, id)), text: `Dear ${p.name},\n\n— ${getSettings().business.name}`, partyKind: kind, partyId: id }); });
   $el.on('click', '.btn-print', () => {
     const b = getSettings().business;
     printHTML(`<div class="print-report"><h2>${esc(b.name)}</h2><div>${esc(one)} statement: <b>${esc(p.name)}</b> ${esc(p.phone || '')}</div>

@@ -44,7 +44,7 @@ export async function newVoucher({ type = 'receipt', counterAccountId = null, ac
   const id = uuid();
   const allowed = Object.keys(TYPES).filter((t) => Auth.can(t === 'receipt' ? 'voucher.create' : 'account.manage'));
   if (!allowed.includes(type)) type = allowed[0];
-  let saved = null;
+  let saved = null; let sendWa = false;
   await UI.formModal({
     title: 'Cash book entry', submitLabel: 'Save',
     body: `<div class="btn-group w-100 mb-3" role="group">${allowed.map((t) => `<input type="radio" class="btn-check" name="type" id="vt-${t}" value="${t}" ${t === type ? 'checked' : ''}><label class="btn btn-outline-${TYPES[t][3]}" for="vt-${t}"><i class="bi bi-${TYPES[t][2]} me-1"></i>${TYPES[t][0]}</label>`).join('')}</div>
@@ -57,6 +57,7 @@ export async function newVoucher({ type = 'receipt', counterAccountId = null, ac
         <div class="col-6"><label class="form-label">Method / Ref</label><input name="method" class="form-control" placeholder="Cash, cheque no…"></div>
         <div class="col-12"><label class="form-label">Note</label><input name="note" class="form-control"></div>
         <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="print" id="v-print"><label class="form-check-label" for="v-print">Print receipt</label></div></div>
+        <div class="col-12 v-wa-box"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="wa" id="v-wa" checked><label class="form-check-label" for="v-wa"><i class="bi bi-whatsapp text-success"></i> Send confirmation on WhatsApp</label></div></div>
       </div>`,
     onShown: ($m) => {
       const sync = () => {
@@ -64,6 +65,7 @@ export async function newVoucher({ type = 'receipt', counterAccountId = null, ac
         $m.find('.v-counter-label').text(TYPES[t][1]);
         $m.find('.v-acc-label').text(t === 'transfer' ? 'From account' : t === 'receipt' ? 'Into account' : 'From account');
         $m.find('.v-counter span').html(counter ? esc(counter.title) : '<span class="text-body-secondary">Select…</span>');
+        $m.find('.v-wa-box').toggleClass('d-none', !(counter && /^[CS]:/.test(counter.id)));
       };
       $m.on('change', '[name=type]', () => { counter = null; sync(); });
       $m.find('.v-counter').on('click', async () => {
@@ -88,9 +90,11 @@ export async function newVoucher({ type = 'receipt', counterAccountId = null, ac
       saved = doc;
       UI.toast(`${doc.number} saved`);
       if (v.print) setTimeout(() => Printer.printDocument('voucher', doc), 300);
+      sendWa = v.wa && /^[CS]:/.test(counter.id);
       return doc;
     },
   });
+  if (saved && sendWa) (await import('../services/whatsapp.js')).shareVoucher(saved);
   return saved;
 }
 
@@ -131,7 +135,7 @@ async function renderDetail(el, id) {
   const entries = await idb.getAllByIndex('entries', 'txnId', v.id);
   const cp = Posting.parseAccount(v.counterAccountId);
   const counterLink = cp.kind === 'accounts' ? (Auth.can('account.manage') ? `#/accounts/${encodeURIComponent(v.counterAccountId)}` : null) : `#/${cp.kind}/${encodeURIComponent(cp.id)}`;
-  $el.html(UI.pageHeader(v.number, `<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i> Print</button>
+  $el.html(UI.pageHeader(v.number, `${cp.kind !== 'accounts' && v.status !== 'void' ? '<button class="btn btn-success btn-sm btn-wa"><i class="bi bi-whatsapp"></i><span class="d-none d-sm-inline"> WhatsApp</span></button>' : ''}<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i> Print</button>
       ${v.status !== 'void' && Auth.can('voucher.void') ? `<button class="btn btn-outline-danger btn-sm btn-void"><i class="bi bi-x-circle"></i> Void</button>` : ''}`, '#/vouchers') + `
     ${v.status === 'void' ? `<div class="alert alert-danger">Voided ${fmtDateTime(v.voidedAt)} by ${esc(v.voidedBy)}${v.voidReason ? ': ' + esc(v.voidReason) : ''}</div>` : ''}
     <div class="card mb-3"><div class="card-body">
@@ -146,6 +150,7 @@ async function renderDetail(el, id) {
       </dl></div></div>
     ${entries.length ? `<h2 class="h6">Ledger entries</h2><div class="list-card mb-3">${(await Promise.all(entries.map(async (e) => `<div class="list-row"><div class="main"><div class="title">${esc(await nameOf(e.accountId))}</div><div class="sub">${esc(e.memo)}</div></div><div class="end money">${e.debit ? 'Dr ' + fmtNum(e.debit) : 'Cr ' + fmtNum(e.credit)}</div></div>`))).join('')}</div>` : ''}`);
   $el.on('click', '.btn-print', () => Printer.printDocument('voucher', v));
+  $el.on('click', '.btn-wa', async () => (await import('../services/whatsapp.js')).shareVoucher(v));
   $el.on('click', '.btn-void', async () => {
     if (!await UI.confirmDialog(`Void ${v.number}? Its ledger entries will be reversed. This cannot be undone.`, { okLabel: 'Void', okClass: 'btn-danger' })) return;
     try { await Posting.voidDocument('voucher', v.id); UI.toast('Voucher voided'); renderDetail(el, id); } catch (e) { UI.toastError(e); }
