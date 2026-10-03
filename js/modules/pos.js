@@ -10,6 +10,7 @@ import * as Printer from '../printer/printer.js';
 import * as Scanner from '../scanner/scanner.js';
 import { partyPicker } from './parties.js';
 import { expiryBadge, expiryState, fmtExpiry } from '../core/views.js';
+import { catVisual } from '../core/fx.js';
 import * as WA from '../services/whatsapp.js';
 
 const $ = window.jQuery;
@@ -145,7 +146,7 @@ function renderGrid() {
   $root.find('.cat-chips').html(`<span class="chip ${!browseCat ? 'active' : ''}" data-cat="">All</span>` + cats.map((c) => `<span class="chip ${browseCat === c.id ? 'active' : ''}" data-cat="${esc(c.id)}">${esc(c.name)}</span>`).join(''));
   $root.find('.product-grid').html(list.length ? list.map((p) => `
     <button class="product-tile" data-id="${esc(p.id)}">
-      ${p.image ? `<img src="${p.image}" alt="" loading="lazy">` : '<div class="ph"><i class="bi bi-box"></i></div>'}
+      ${p.image ? `<img src="${p.image}" alt="" loading="lazy">` : (() => { const v = catVisual(Catalog.category(p.categoryId)?.name, p.name); return `<div class="ph cv ${v.cls}">${v.emoji}</div>`; })()}
       <div class="n">${esc(p.name)}</div>
       <div class="p">${fmtNum(priceOf(p))}</div>
       ${p.trackStock !== false ? `<div class="s">Stock: ${fmtQty(p.stock)}</div>` : ''}

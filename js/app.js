@@ -6,6 +6,7 @@ import { esc } from './core/utils.js';
 import { openDB } from './db/idb.js';
 import * as Auth from './services/auth.js';
 import * as Catalog from './services/catalog.js';
+import { buildLoginScene } from './core/fx.js';
 
 const $ = window.jQuery;
 
@@ -112,6 +113,8 @@ async function route() {
   if (!Auth.user()) return;
   if (checkExpiry()) return;
   const token = ++routeToken;
+  const bar = document.getElementById('route-bar');
+  if (bar) { bar.classList.remove('run'); void bar.offsetWidth; bar.classList.add('run'); }
   const parts = (location.hash.replace(/^#\/?/, '').split('?')[0] || 'dashboard').split('/').map(decodeURIComponent);
   const name = ROUTES[parts[0]] ? parts[0] : 'dashboard';
   const [loader, title, perm] = ROUTES[name];
@@ -169,6 +172,7 @@ function checkExpiry() {
 }
 
 function showLogin(reason = '') {
+  buildLoginScene(document.getElementById('login-scene'));
   showView('login');
   renderConn(navigator.onLine ? 'online' : 'offline');
   const notices = [];
@@ -187,6 +191,7 @@ $('#login-form').on('submit', async (e) => {
     await startApp();
   } catch (err) {
     $('#login-error').text(err.message || String(err)).removeClass('d-none');
+    $('.login-card').removeClass('shake'); void $('.login-card')[0].offsetWidth; $('.login-card').addClass('shake');
   } finally { $btn.prop('disabled', false).text('Sign in'); }
 });
 $('#toggle-pw').on('click', () => {

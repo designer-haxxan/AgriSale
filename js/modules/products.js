@@ -2,6 +2,7 @@
 import * as UI from '../core/ui.js';
 import { esc, fmtNum, fmtQty, num, debounce, compressImage, AppError } from '../core/utils.js';
 import { money, pager, expiryBadge, expiryState } from '../core/views.js';
+import { catVisual } from '../core/fx.js';
 import * as Auth from '../services/auth.js';
 import * as Catalog from '../services/catalog.js';
 import * as Posting from '../services/posting.js';
@@ -138,7 +139,7 @@ async function renderList(el) {
     pager($el.find('.list'), list, (p) => {
       const low = p.trackStock !== false && p.stock <= (p.minStock || 0);
       return `<button class="list-row" data-id="${esc(p.id)}">
-        ${p.image ? `<img class="thumb" src="${p.image}" alt="" loading="lazy">` : '<div class="thumb"><i class="bi bi-box"></i></div>'}
+        ${p.image ? `<img class="thumb" src="${p.image}" alt="" loading="lazy">` : (() => { const v = catVisual(Catalog.category(p.categoryId)?.name, p.name); return `<div class="thumb cv ${v.cls}">${v.emoji}</div>`; })()}
         <div class="main"><div class="title">${esc(p.name)} ${p.active ? '' : '<span class="badge text-bg-secondary">Inactive</span>'}</div>
           <div class="sub">${esc([p.company, p.packSize, Catalog.category(p.categoryId)?.name, p.sku].filter(Boolean).join(' · ') || '—')}</div>
           ${Catalog.nearestExpiry(p.id) ? `<div class="sub">${expiryBadge(Catalog.nearestExpiry(p.id), { short: true })}</div>` : ''}</div>

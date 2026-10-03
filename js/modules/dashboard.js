@@ -4,6 +4,7 @@ import * as UI from '../core/ui.js';
 import { esc, fmtNum, fmtQty, fmtTime, today, round2 } from '../core/utils.js';
 import { money, expiryBadge, expiryDays } from '../core/views.js';
 import { pref, getSettings } from '../core/settings.js';
+import { buildHeroField, countUp } from '../core/fx.js';
 import * as Auth from '../services/auth.js';
 import * as Catalog from '../services/catalog.js';
 import * as Posting from '../services/posting.js';
@@ -54,7 +55,19 @@ export default {
       <div class="d-flex justify-content-between"><div class="stat-label">${label}</div><i class="bi bi-${icon} text-${color}"></i></div><div class="stat-value money">${value}</div></div></${href ? 'a' : 'div'}></div>`;
     const qa = (href, icon, label, perm) => (!perm || Auth.can(perm)) ? `<div class="col-4 col-md-2"><a class="quick-action" href="${href}"><i class="bi bi-${icon}"></i>${label}</a></div>` : '';
     $el.html(`
-      <div class="d-flex justify-content-between align-items-end mb-3"><div><div class="text-body-secondary small">${new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</div><h1 class="h5 mb-0">Hello, ${esc(u.name.split(' ')[0])}</h1></div></div>
+      <div class="hero">
+        <div class="hero-hi">${new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+        <h1>${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, ${esc(u.name.split(' ')[0])} 🌾</h1>
+        <div class="hero-sub">Today's sales</div>
+        <div class="hero-sales money">${money(f.sales)}</div>
+        <div class="hero-sub">${f.salesCount} bill(s) · cash in ${money(f.cashIn)}</div>
+        <div class="hero-pills">
+          <a class="hero-pill ${overdue ? 'bad' : ''}" href="#/whatsapp/reminders"><i class="bi bi-bell"></i>${overdue ? `${overdueCount} overdue · ${money(overdue)}` : 'No overdue credit'}</a>
+          <a class="hero-pill ${expiredN ? 'bad' : expBatches.length ? 'warn' : ''}" href="#/expiry"><i class="bi bi-hourglass-split"></i>${expiredN ? `${expiredN} expired` : expBatches.length ? `${expBatches.length} expiring soon` : 'No expiry alerts'}</a>
+          <a class="hero-pill ${low.length ? 'warn' : ''}" href="#/stock"><i class="bi bi-box-seam"></i>${low.length ? `${low.length} low stock` : 'Stock healthy'}</a>
+        </div>
+        <svg class="hero-field" aria-hidden="true"></svg>
+      </div>
       ${!navigator.onLine ? '<div class="alert alert-secondary py-2 small"><i class="bi bi-wifi-off me-1"></i>You are offline. Everything you do is saved on this device.</div>' : ''}
       ${Auth.can('backup.export') && (backupDays === null || backupDays >= 7) ? `<div class="alert alert-warning py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle"></i><div class="flex-grow-1">${backupDays === null ? 'No backup has been made on this device yet.' : `Last backup was ${backupDays} days ago.`} Your data only lives on this device.</div><a class="btn btn-sm btn-warning" href="#/backup">Back up</a></div>` : ''}
       <div class="row g-2 mb-3">
@@ -87,6 +100,8 @@ export default {
         <div class="col-md-6"><h2 class="h6 text-body-secondary">Expiring soon <span class="small fw-normal">— sold first automatically</span></h2><div class="list-card">${expBatches.slice(0, 6).map((b) => { const p = Catalog.product(b.productId); return p ? `<a class="list-row" href="#/stock/${encodeURIComponent(p.id)}"><div class="main"><div class="title">${esc(p.name)}</div><div class="sub">Batch ${esc(b.batchNo)} · ${fmtQty(b.qty)} ${esc(p.unit)}</div></div><div class="end">${expiryBadge(b.expiry, { short: true })}</div></a>` : ''; }).join('') || UI.emptyState(`Nothing expires within ${nearDays} days`, 'check-circle')}</div></div>
         <div class="col-md-6"><h2 class="h6 text-body-secondary">Low stock</h2><div class="list-card">${low.slice(0, 6).map((p) => `<a class="list-row" href="#/stock/${encodeURIComponent(p.id)}"><div class="main"><div class="title">${esc(p.name)}</div><div class="sub">Min ${fmtQty(p.minStock || 0)}</div></div><div class="end"><span class="badge ${p.stock <= 0 ? 'text-bg-danger' : 'text-bg-warning'}">${fmtQty(p.stock)} ${esc(p.unit)}</span></div></a>`).join('') || UI.emptyState('All stock levels are fine', 'check-circle')}</div></div>
       </div>`);
+    buildHeroField($el.find('.hero-field')[0]);
+    countUp($el[0]);
     const refresh = () => { if (location.hash === '' || location.hash.startsWith('#/dashboard')) this.render(el); };
     this._h = refresh;
     document.addEventListener('data:changed', refresh);
