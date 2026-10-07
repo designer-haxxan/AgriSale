@@ -231,3 +231,8 @@ a.hero-pill:hover { background: rgba(255, 255, 255, .3); color: #fff; transform:
 .product-tile .ph, .product-tile img { flex-shrink: 0; }
 .product-tile .ph.cv { height: 72px; font-size: 2.4rem; }
 .product-tile .n { min-height: 2.3em; }
+
+/* Login prefilled from a link: make the Sign in button impossible to miss */
+#login-btn.prefilled { animation: prefillpulse 1.3s ease-in-out infinite; background-image: linear-gradient(180deg, #ffca28, #ffa000); border-color: #ff8f00; color: #3e2700; }
+@keyframes prefillpulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 160, 0, .6); } 50% { transform: scale(1.03); box-shadow: 0 0 0 12px rgba(255, 160, 0, 0); } }
+#login-prefill-hint { font-size: 1rem; font-weight: 600; line-height: 1.7; }
