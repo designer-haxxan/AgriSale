@@ -71,7 +71,8 @@ export default {
       ${!navigator.onLine ? '<div class="alert alert-secondary py-2 small"><i class="bi bi-wifi-off me-1"></i>You are offline. Everything you do is saved on this device.</div>' : ''}
       ${Auth.can('backup.export') && (backupDays === null || backupDays >= 7) ? `<div class="alert alert-warning py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle"></i><div class="flex-grow-1">${backupDays === null ? 'No backup has been made on this device yet.' : `Last backup was ${backupDays} days ago.`} Your data only lives on this device.</div><a class="btn btn-sm btn-warning" href="#/backup">Back up</a></div>` : ''}
       <div class="row g-2 mb-3">
-        ${qa('#/pos', 'cart-plus', 'New sale', 'sale.create')}${qa('#/purchase/new', 'bag-plus', 'Purchase', 'purchase.manage')}
+        ${qa('#/stock', 'box-seam', 'Stock', 'product.manage')}${qa('#/vouchers', 'receipt-cutoff', 'Expenses', 'voucher.create')}
+        ${qa('#/purchases', 'bag', `Bills (${f.purchasesCount})`, 'purchase.manage')}${qa('#/pos', 'cart-plus', 'New sale', 'sale.create')}
         ${qa('#/vouchers', 'cash-coin', 'Cash book', 'voucher.create')}${qa('#/customers', 'people', 'Customers')}
         ${qa('#/whatsapp', 'whatsapp', 'WhatsApp')}${qa('#/reports', 'bar-chart-line', 'Reports', 'reports.view')}
       </div>
