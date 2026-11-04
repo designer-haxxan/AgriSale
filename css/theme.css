@@ -237,68 +237,259 @@ a.hero-pill:hover { background: rgba(255, 255, 255, .3); color: #fff; transform:
 @keyframes prefillpulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 160, 0, .6); } 50% { transform: scale(1.03); box-shadow: 0 0 0 12px rgba(255, 160, 0, 0); } }
 #login-prefill-hint { font-size: 1rem; font-weight: 600; line-height: 1.7; }
 
-/* RTL (Right-to-Left) layout for Urdu and Arabic */
+/* RTL (Right-to-Left) layout for Urdu - Complete professional redesign */
 html[dir="rtl"],
 html[lang="ur"] {
   direction: rtl;
   text-align: right;
 }
-html[dir="rtl"] body,
-html[lang="ur"] body {
+
+/* Core RTL layout */
+html[dir="rtl"] * {
   direction: rtl;
 }
-html[dir="rtl"] .sidebar,
-html[dir="rtl"] aside {
-  right: 0;
-  left: auto;
-  border-right: 1px solid;
-  border-left: none;
+
+html[dir="rtl"] body {
+  direction: rtl;
+  text-align: right;
 }
-html[dir="rtl"] .app-topbar {
+
+/* Sidebar - move to right side */
+html[dir="rtl"] aside,
+html[dir="rtl"] #sidebar,
+html[dir="rtl"] .sidebar {
+  right: 0 !important;
+  left: auto !important;
+  border-right: 1px solid rgba(0,0,0,.1);
+  border-left: none !important;
+}
+
+html[dir="rtl"] .app-main {
+  margin-right: 0 !important;
+  margin-left: auto !important;
+}
+
+/* Topbar - reverse flex direction */
+html[dir="rtl"] .app-topbar,
+html[dir="rtl"] header {
   flex-direction: row-reverse;
+  text-align: right;
 }
+
+html[dir="rtl"] .topbar-title {
+  text-align: right;
+  margin-right: 1rem;
+  margin-left: 0;
+}
+
+/* Navigation */
+html[dir="rtl"] .nav-section {
+  text-align: right;
+  padding-right: 1rem;
+  padding-left: 0;
+}
+
+html[dir="rtl"] .nav-link {
+  padding-right: 1rem !important;
+  padding-left: 0.25rem !important;
+  text-align: right;
+}
+
+html[dir="rtl"] .nav-link i {
+  margin-right: 0.5rem;
+  margin-left: 0;
+}
+
+/* Dropdown menus */
 html[dir="rtl"] .dropdown-menu {
-  left: auto;
-  right: 0;
+  left: auto !important;
+  right: 0 !important;
+  text-align: right;
 }
+
+html[dir="rtl"] .dropdown-item {
+  text-align: right;
+  padding-right: 1.5rem !important;
+  padding-left: 1rem !important;
+}
+
+html[dir="rtl"] .dropdown-item i {
+  margin-right: 0.5rem;
+  margin-left: 0;
+}
+
+/* Offcanvas */
 html[dir="rtl"] .offcanvas-start {
   right: -100%;
   left: auto;
 }
+
 html[dir="rtl"] .offcanvas-start.show {
   right: 0;
   left: auto;
 }
-html[dir="rtl"] .nav-section {
-  text-align: right;
-}
-html[dir="rtl"] .nav-link {
-  padding-right: 1rem;
-  padding-left: 0.5rem;
-}
-html[dir="rtl"] .list-card,
-html[dir="rtl"] .list-row {
-  direction: rtl;
-}
+
+/* Forms */
 html[dir="rtl"] .form-control,
 html[dir="rtl"] .form-select {
   direction: rtl;
   text-align: right;
+  padding-right: 0.75rem !important;
+  padding-left: 0.75rem !important;
 }
+
 html[dir="rtl"] input[type="text"],
 html[dir="rtl"] input[type="password"],
-html[dir="rtl"] textarea {
+html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[type="number"],
+html[dir="rtl"] textarea,
+html[dir="rtl"] select {
+  direction: rtl;
   text-align: right;
 }
+
+html[dir="rtl"] .form-label {
+  text-align: right;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+html[dir="rtl"] .form-floating > label {
+  right: 0 !important;
+  left: auto !important;
+  text-align: right;
+}
+
+/* Cards and lists */
+html[dir="rtl"] .card {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .list-card,
+html[dir="rtl"] .list-row {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .list-row {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .list-row .main {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+html[dir="rtl"] .list-row .end {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Alerts and messages */
 html[dir="rtl"] .alert {
   direction: rtl;
   text-align: right;
 }
+
+html[dir="rtl"] .alert i {
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+/* Modals and dialogs */
 html[dir="rtl"] .modal-content {
   direction: rtl;
   text-align: right;
 }
+
+html[dir="rtl"] .modal-header {
+  flex-direction: row-reverse;
+}
+
+/* Buttons */
 html[dir="rtl"] .btn-group,
 html[dir="rtl"] .btn-toolbar {
   flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .btn i {
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+html[dir="rtl"] .btn-primary,
+html[dir="rtl"] .btn-secondary {
+  text-align: center;
+}
+
+/* Bottom navigation */
+html[dir="rtl"] #bottom-nav {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] #bottom-nav a {
+  flex-direction: column-reverse;
+}
+
+/* Hero section */
+html[dir="rtl"] .hero {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .hero-pills {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+/* Grid layouts */
+html[dir="rtl"] .row {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .d-flex {
+  flex-direction: row-reverse;
+}
+
+/* Badge and labels */
+html[dir="rtl"] .badge {
+  text-align: right;
+}
+
+/* Pagination */
+html[dir="rtl"] .pagination {
+  flex-direction: row-reverse;
+}
+
+/* Breadcrumbs */
+html[dir="rtl"] .breadcrumb {
+  flex-direction: row-reverse;
+}
+
+/* Input groups */
+html[dir="rtl"] .input-group {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .input-group-text {
+  text-align: right;
+}
+
+/* Floating elements */
+html[dir="rtl"] .float-start {
+  float: right !important;
+}
+
+html[dir="rtl"] .float-end {
+  float: left !important;
+}
+
+/* Text utilities */
+html[dir="rtl"] .text-start {
+  text-align: right !important;
+}
+
+html[dir="rtl"] .text-end {
+  text-align: left !important;
 }

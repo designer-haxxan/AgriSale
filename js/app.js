@@ -112,7 +112,7 @@ function buildMenu() {
   $('#user-role').text(Auth.ROLES[u.role] || u.role);
   $('#brand-name').text(getSettings().business.name || CONFIG.APP_NAME);
   const lang = getSettings().language || 'en';
-  $('#lang-label').text(lang === 'en' ? 'اردو' : 'EN');
+  $('#lang-label').text(lang === 'en' ? 'اردو' : 'EN').attr('dir', lang === 'ur' ? 'rtl' : 'ltr');
   $('#html-root').attr('dir', lang === 'ur' ? 'rtl' : 'ltr');
   $('html').attr('lang', lang === 'ur' ? 'ur' : 'en');
   $('#bottom-nav [data-route="pos"]').toggleClass('d-none', !Auth.can('sale.create'));
@@ -213,7 +213,7 @@ $('#lang-toggle').on('click', function () {
   const currentLang = getSettings().language || 'en';
   const newLang = currentLang === 'en' ? 'ur' : 'en';
   saveSettings({ language: newLang });
-  $('#lang-label').text(newLang === 'en' ? 'اردو' : 'EN');
+  $('#lang-label').text(newLang === 'en' ? 'اردو' : 'EN').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
   $('#html-root').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
   $('html').attr('lang', newLang);
   UI.toast(`Language changed to ${newLang === 'en' ? 'English' : 'Urdu'}. Refreshing...`, 'info');
