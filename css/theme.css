@@ -236,3 +236,69 @@ a.hero-pill:hover { background: rgba(255, 255, 255, .3); color: #fff; transform:
 #login-btn.prefilled { animation: prefillpulse 1.3s ease-in-out infinite; background-image: linear-gradient(180deg, #ffca28, #ffa000); border-color: #ff8f00; color: #3e2700; }
 @keyframes prefillpulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 160, 0, .6); } 50% { transform: scale(1.03); box-shadow: 0 0 0 12px rgba(255, 160, 0, 0); } }
 #login-prefill-hint { font-size: 1rem; font-weight: 600; line-height: 1.7; }
+
+/* RTL (Right-to-Left) layout for Urdu and Arabic */
+html[dir="rtl"],
+html[lang="ur"] {
+  direction: rtl;
+  text-align: right;
+}
+html[dir="rtl"] body,
+html[lang="ur"] body {
+  direction: rtl;
+}
+html[dir="rtl"] .sidebar,
+html[dir="rtl"] aside {
+  right: 0;
+  left: auto;
+  border-right: 1px solid;
+  border-left: none;
+}
+html[dir="rtl"] .app-topbar {
+  flex-direction: row-reverse;
+}
+html[dir="rtl"] .dropdown-menu {
+  left: auto;
+  right: 0;
+}
+html[dir="rtl"] .offcanvas-start {
+  right: -100%;
+  left: auto;
+}
+html[dir="rtl"] .offcanvas-start.show {
+  right: 0;
+  left: auto;
+}
+html[dir="rtl"] .nav-section {
+  text-align: right;
+}
+html[dir="rtl"] .nav-link {
+  padding-right: 1rem;
+  padding-left: 0.5rem;
+}
+html[dir="rtl"] .list-card,
+html[dir="rtl"] .list-row {
+  direction: rtl;
+}
+html[dir="rtl"] .form-control,
+html[dir="rtl"] .form-select {
+  direction: rtl;
+  text-align: right;
+}
+html[dir="rtl"] input[type="text"],
+html[dir="rtl"] input[type="password"],
+html[dir="rtl"] textarea {
+  text-align: right;
+}
+html[dir="rtl"] .alert {
+  direction: rtl;
+  text-align: right;
+}
+html[dir="rtl"] .modal-content {
+  direction: rtl;
+  text-align: right;
+}
+html[dir="rtl"] .btn-group,
+html[dir="rtl"] .btn-toolbar {
+  flex-direction: row-reverse;
+}

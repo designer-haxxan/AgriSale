@@ -112,6 +112,8 @@ function buildMenu() {
   $('#brand-name').text(getSettings().business.name || CONFIG.APP_NAME);
   const lang = getSettings().language || 'en';
   $('#lang-label').text(lang === 'en' ? 'اردو' : 'EN');
+  $('#html-root').attr('dir', lang === 'ur' ? 'rtl' : 'ltr');
+  $('html').attr('lang', lang === 'ur' ? 'ur' : 'en');
   $('#bottom-nav [data-route="pos"]').toggleClass('d-none', !Auth.can('sale.create'));
 }
 
@@ -211,7 +213,9 @@ $('#lang-toggle').on('click', function () {
   const newLang = currentLang === 'en' ? 'ur' : 'en';
   saveSettings({ language: newLang });
   $('#lang-label').text(newLang === 'en' ? 'اردو' : 'EN');
-  UI.toast(`Language changed to ${newLang === 'en' ? 'English' : 'Urdu'}. Refresh to see all changes.`, 'info');
+  $('#html-root').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
+  $('html').attr('lang', newLang);
+  UI.toast(`Language changed to ${newLang === 'en' ? 'English' : 'Urdu'}. Refreshing...`, 'info');
   setTimeout(() => location.reload(), 2000);
 });
 $('#install-btn').on('click', promptInstall);
