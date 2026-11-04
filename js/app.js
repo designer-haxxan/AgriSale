@@ -89,7 +89,7 @@ function renderConn(status) {
   const map = { online: ['wifi', t('online')], offline: ['wifi-off', t('offline')] };
   const [icon, label] = map[status] || map.offline;
   $('#conn-badge').attr('class', `badge rounded-pill conn-${status}`).html(`<i class="bi bi-${icon}"></i> <span>${label}</span>`);
-  const offlineText = getSettings().language === 'ur' ? 'آف لائن — انٹرنیٹ سے جڑنے کے لیے سائن ان کریں' : 'Offline — connect to the internet to sign in';
+  const offlineText = t('offline');
   $('#login-conn').html(navigator.onLine ? `<i class="bi bi-wifi text-success"></i> ${t('online')}` : `<i class="bi bi-wifi-off text-danger"></i> ${offlineText}`);
 }
 window.addEventListener('online', () => renderConn('online'));
@@ -184,15 +184,30 @@ function showLogin(reason = '') {
   buildLoginScene(document.getElementById('login-scene'));
   showView('login');
   renderConn(navigator.onLine ? 'online' : 'offline');
+  updateLoginUI();
+  $('#app-version').text(`v${CONFIG.APP_VERSION}`);
   const notices = [];
   if (reason) notices.push(esc(reason));
   $('#login-notice').toggleClass('d-none', !notices.length).html(notices.join('<br>'));
   setTimeout(() => $('#login-username').trigger('focus'), 50);
 }
 
+function updateLoginUI() {
+  const lang = getSettings().language || 'en';
+  $('#login-welcome').text(t('welcomeBack'));
+  $('#login-subtitle').text(t('signInToOpen'));
+  $('#login-username-label').text(t('username'));
+  $('#login-password-label').text(t('password'));
+  $('#login-btn').text(t('signIn'));
+  const offlineText = lang === 'ur' ? t('offline') : t('offline');
+  $('#login-conn').html(navigator.onLine ? `<i class="bi bi-wifi text-success"></i> ${t('online')}` : `<i class="bi bi-wifi-off text-danger"></i> ${offlineText}`);
+  $('#html-root').attr('dir', lang === 'ur' ? 'rtl' : 'ltr');
+  $('html').attr('lang', lang === 'ur' ? 'ur' : 'en');
+}
+
 $('#login-form').on('submit', async (e) => {
   e.preventDefault();
-  const $btn = $('#login-btn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Signing in…');
+  const $btn = $('#login-btn').prop('disabled', true).html(`<span class="spinner-border spinner-border-sm me-2"></span>${t('signingIn')}`);
   $('#login-error').addClass('d-none');
   try {
     await Auth.login($('#login-username').val(), $('#login-password').val());
@@ -201,7 +216,14 @@ $('#login-form').on('submit', async (e) => {
   } catch (err) {
     $('#login-error').text(err.message || String(err)).removeClass('d-none');
     $('.login-card').removeClass('shake'); void $('.login-card')[0].offsetWidth; $('.login-card').addClass('shake');
-  } finally { $btn.prop('disabled', false).text('Sign in'); }
+  } finally { $btn.prop('disabled', false).text(t('signIn')); }
+});
+
+$('#login-lang-toggle').on('click', function () {
+  const currentLang = getSettings().language || 'en';
+  const newLang = currentLang === 'en' ? 'ur' : 'en';
+  saveSettings({ language: newLang });
+  updateLoginUI();
 });
 $('#toggle-pw').on('click', () => {
   const $i = $('#login-password'); const show = $i.attr('type') === 'password';

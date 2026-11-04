@@ -20,8 +20,24 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-app
 
 /* Login */
 .login-wrap { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 16px; max-width: 420px; margin: 0 auto; }
-.login-card { border: 0; border-radius: 16px; }
+.login-brand { animation: slideInDown 0.6s ease-out; }
+.login-card { border: 0; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); animation: slideInUp 0.6s ease-out; overflow: hidden; }
+.login-card .card-body { background: var(--bs-body-bg); }
+.login-title { font-size: 1.4rem; margin-bottom: 2px; }
+.login-subtitle { font-size: 0.95rem; margin-bottom: 0; }
+.login-feats { animation: slideInUp 0.8s ease-out 0.2s both; }
+.login-foot { animation: fadeIn 0.6s ease-out 0.4s both; }
 #toggle-pw { z-index: 5; }
+#login-lang-toggle { opacity: 0.6; transition: opacity 0.2s; }
+#login-lang-toggle:hover { opacity: 1; }
+.form-control:focus { border-color: var(--bs-primary); box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15); }
+#login-btn { font-weight: 600; letter-spacing: 0.3px; transition: all 0.3s ease; }
+#login-btn:active { transform: scale(0.98); }
+.login-card.shake { animation: shake 0.4s ease-in-out; }
+@keyframes slideInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
 
 /* Layout */
 #view-app { min-height: 100vh; }

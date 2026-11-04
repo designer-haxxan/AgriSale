@@ -89,6 +89,20 @@ export const LABELS = {
     success: 'Success',
     warning: 'Warning',
     info: 'Information',
+
+    // Login page
+    welcomeBack: 'Welcome back',
+    signInToOpen: 'Sign in to open your shop',
+    username: 'Username',
+    password: 'Password',
+    signIn: 'Sign in',
+    signingIn: 'Signing in…',
+    internetRequired: 'Internet is required to sign in. After that, the POS works offline.',
+    batches: 'Batches & expiry',
+    sellOldest: 'Sell oldest first',
+    farmerCredit: 'Farmer credit',
+    whatsappMsg: 'WhatsApp',
+    offline: 'Offline — connect to the internet to sign in',
   },
   ur: {
     // Navigation - Main
@@ -177,6 +191,20 @@ export const LABELS = {
     success: 'کامیاب',
     warning: 'انتباہ',
     info: 'معلومات',
+
+    // Login page
+    welcomeBack: 'خوش آمدید',
+    signInToOpen: 'اپنی دکان کھولنے کے لیے سائن ان کریں',
+    username: 'یوزر نیم',
+    password: 'پاس ورڈ',
+    signIn: 'سائن ان کریں',
+    signingIn: 'سائن ان ہو رہے ہیں…',
+    internetRequired: 'سائن ان کرنے کے لیے انٹرنیٹ درکار ہے۔ اس کے بعد، یہ ایپ آف لائن کام کرتی ہے۔',
+    batches: 'بیچ اور میعاد',
+    sellOldest: 'سب سے پرانا پہلے بیچیں',
+    farmerCredit: 'کسان کریڈٹ',
+    whatsappMsg: 'واٹس ایپ',
+    offline: 'آف لائن — سائن ان کرنے کے لیے انٹرنیٹ سے جڑیں',
   },
 };
 

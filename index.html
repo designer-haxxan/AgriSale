@@ -46,19 +46,22 @@
       </div>
       <div class="card login-card">
         <div class="card-body p-4">
-          <div class="text-center mb-3">
-            <div class="fw-semibold">Welcome back</div>
-            <div class="text-body-secondary small">Sign in to open your shop</div>
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+              <div class="fw-semibold login-title" id="login-welcome">Welcome back</div>
+              <div class="text-body-secondary small login-subtitle" id="login-subtitle">Sign in to open your shop</div>
+            </div>
+            <button class="btn btn-link text-body px-1 ms-2" id="login-lang-toggle" title="Toggle language"><i class="bi bi-globe"></i></button>
           </div>
           <div id="login-notice" class="alert alert-warning small d-none"></div>
           <form id="login-form" novalidate>
             <div class="form-floating mb-3">
               <input type="text" class="form-control" id="login-username" name="username" placeholder="Username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
-              <label for="login-username">Username</label>
+              <label for="login-username" id="login-username-label">Username</label>
             </div>
             <div class="form-floating mb-3 position-relative">
               <input type="password" class="form-control" id="login-password" name="password" placeholder="Password" autocomplete="current-password" required>
-              <label for="login-password">Password</label>
+              <label for="login-password" id="login-password-label">Password</label>
               <button type="button" class="btn btn-link position-absolute top-50 end-0 translate-middle-y text-body-secondary" id="toggle-pw" aria-label="Show password"><i class="bi bi-eye"></i></button>
             </div>
             <div id="login-error" class="alert alert-danger py-2 small d-none"></div>
@@ -66,12 +69,16 @@
             <button type="submit" class="btn btn-primary btn-lg w-100" id="login-btn">Sign in</button>
           </form>
           <div class="text-center small text-body-secondary mt-3" id="login-conn"></div>
+          <div class="text-center small text-body-secondary mt-2" id="app-version" style="opacity: 0.7;">v1.0.0</div>
         </div>
       </div>
-      <div class="login-feats" aria-hidden="true">
-        <div><b>🌱</b>Batches &amp; expiry</div><div><b>⏳</b>Sell oldest first</div><div><b>📒</b>Farmer credit</div><div><b>💬</b>WhatsApp</div>
+      <div class="login-feats" aria-hidden="true" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; text-align: center;">
+        <div style="padding: 12px; background: var(--bs-primary-bg-subtle); border-radius: 12px;"><div style="font-size: 1.5rem; margin-bottom: 4px;">🌱</div><div style="font-size: 0.85rem; color: var(--bs-body-color);">Batches &amp; expiry</div></div>
+        <div style="padding: 12px; background: var(--bs-warning-bg-subtle); border-radius: 12px;"><div style="font-size: 1.5rem; margin-bottom: 4px;">⏳</div><div style="font-size: 0.85rem; color: var(--bs-body-color);">Sell oldest first</div></div>
+        <div style="padding: 12px; background: var(--bs-success-bg-subtle); border-radius: 12px;"><div style="font-size: 1.5rem; margin-bottom: 4px;">📒</div><div style="font-size: 0.85rem; color: var(--bs-body-color);">Farmer credit</div></div>
+        <div style="padding: 12px; background: var(--bs-info-bg-subtle); border-radius: 12px;"><div style="font-size: 1.5rem; margin-bottom: 4px;">💬</div><div style="font-size: 0.85rem; color: var(--bs-body-color);">WhatsApp</div></div>
       </div>
-      <div class="login-foot">Internet is required to sign in. After that, the POS works offline.</div>
+      <div class="login-foot" style="margin-top: 20px; padding: 12px; background: var(--bs-secondary-bg); border-radius: 12px; text-align: center; font-size: 0.85rem;">Internet is required to sign in. After that, the POS works offline.</div>
     </div>
   </div>
 
