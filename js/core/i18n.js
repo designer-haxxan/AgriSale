@@ -1,30 +1,128 @@
-// Simple translation system for dashboard and UI labels
+// Comprehensive translation system for all UI labels
 import { getSettings } from './settings.js';
 
 export const LABELS = {
   en: {
-    // Dashboard quick actions
+    // Navigation - Main
+    dashboard: 'Dashboard',
+    newSale: 'New Sale',
+    sales: 'Sales',
+    purchases: 'Purchases',
+    returns: 'Returns',
+
+    // Navigation - Inventory
+    products: 'Products',
     stock: 'Stock',
+    expiry: 'Expiry & batches',
+
+    // Navigation - Parties
+    customers: 'Customers',
+    suppliers: 'Suppliers',
+    whatsapp: 'WhatsApp',
+
+    // Navigation - Accounts
+    cashBook: 'Cash Book & Payments',
+    accounts: 'Accounts',
+    reports: 'Reports',
+
+    // Navigation - Administration
+    backup: 'Backup & Restore',
+    settings: 'Settings',
+
+    // Quick Actions
     expenses: 'Expenses',
     bills: 'Bills',
-    newSale: 'New sale',
     purchase: 'Purchase',
-    cashBook: 'Cash book',
-    customers: 'Customers',
-    whatsapp: 'WhatsApp',
-    reports: 'Reports',
+
+    // Dashboard sections
+    todaySales: "Today's sales",
+    today: 'Today',
+    overall: 'Overall',
+
+    // Dashboard cards
+    sales_label: 'Sales',
+    purchases_label: 'Purchases',
+    cashReceived: 'Cash received',
+    cashPaid: 'Cash paid',
+    transactions: 'Transactions',
+    receivables: 'Receivables',
+    payables: 'Payables',
+    stockValue: 'Stock value',
+    lowStockItems: 'Low stock items',
+    overdueCredit: 'Overdue credit',
+    expiredBatches: 'Expired batches',
+    expiringDays: 'Expiring ≤ 60 days',
+
+    // Dialog/Alert text
+    noOverdueCredit: 'No overdue credit',
+    noExpiryAlerts: 'No expiry alerts',
+    stockHealthy: 'Stock healthy',
+    noBackup: 'No backup has been made on this device yet',
+    recentSales: 'Recent sales',
+    expiringTip: 'sold first automatically',
+    returns: 'Returns',
+    days: 'days',
   },
   ur: {
-    // Urdu translations
+    // Navigation - Main
+    dashboard: 'ڈیش بورڈ',
+    newSale: 'نیا فروخت',
+    sales: 'فروخت',
+    purchases: 'خریداری',
+    returns: 'واپسی',
+
+    // Navigation - Inventory
+    products: 'پروڈکٹس',
     stock: 'اسٹاک',
+    expiry: 'میعاد اور بیچ',
+
+    // Navigation - Parties
+    customers: 'کسٹمرز',
+    suppliers: 'سپلائرز',
+    whatsapp: 'واٹس ایپ',
+
+    // Navigation - Accounts
+    cashBook: 'نقد بہی اور ادائیگیاں',
+    accounts: 'حسابات',
+    reports: 'رپورٹیں',
+
+    // Navigation - Administration
+    backup: 'بیک اپ اور بحال کریں',
+    settings: 'سیٹنگز',
+
+    // Quick Actions
     expenses: 'اخراجات',
     bills: 'بل',
-    newSale: 'نیا فروخت',
     purchase: 'خریداری',
-    cashBook: 'کیش بک',
-    customers: 'کسٹمرز',
-    whatsapp: 'واٹس ایپ',
-    reports: 'رپورٹیں',
+
+    // Dashboard sections
+    todaySales: 'آج کی فروخت',
+    today: 'آج',
+    overall: 'مجموعی',
+
+    // Dashboard cards
+    sales_label: 'فروخت',
+    purchases_label: 'خریداری',
+    cashReceived: 'نقد وصول',
+    cashPaid: 'نقد ادا',
+    transactions: 'ٹرانزیکشنز',
+    receivables: 'وصول یافتہ',
+    payables: 'ادا یافتہ',
+    stockValue: 'اسٹاک کی قیمت',
+    lowStockItems: 'کم اسٹاک کی چیزیں',
+    overdueCredit: 'شدہ کریڈٹ',
+    expiredBatches: 'میعاد ختم بیچ',
+    expiringDays: 'میعاد ≤ 60 دن',
+
+    // Dialog/Alert text
+    noOverdueCredit: 'کوئی شدہ کریڈٹ نہیں',
+    noExpiryAlerts: 'کوئی میعاد الرٹ نہیں',
+    stockHealthy: 'اسٹاک صحت مند',
+    noBackup: 'اس ڈیوائس پر ابھی کوئی بیک اپ نہیں بنایا گیا',
+    recentSales: 'حالیہ فروخت',
+    expiringTip: 'پہلے خودکار طور پر فروخت',
+    returns: 'واپسی',
+    days: 'دن',
   },
 };
 

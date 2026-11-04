@@ -78,24 +78,24 @@ export default {
         ${qa('#/whatsapp', 'whatsapp', t('whatsapp'))}${qa('#/reports', 'bar-chart-line', t('reports'), 'reports.view')}
       </div>
       ${expiredN ? `<div class="alert alert-danger py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-octagon"></i><div class="flex-grow-1">${expiredN} batch(es) in stock have expired. They are blocked from sale — return them to the supplier or write them off.</div><a class="btn btn-sm btn-danger" href="#/expiry?f=expired">Review</a></div>` : ''}
-      <h2 class="h6 text-body-secondary">Today</h2>
+      <h2 class="h6 text-body-secondary">${t('today')}</h2>
       <div class="row g-2 mb-3">
-        ${stat('Sales', money(f.sales), 'receipt', 'primary', '#/sales')}
-        ${Auth.can('purchase.manage') ? stat('Purchases', money(f.purchases), 'bag', 'secondary', '#/purchases') : ''}
-        ${stat('Cash received', money(f.cashIn), 'arrow-down-circle', 'success', Auth.can('voucher.create') ? '#/vouchers' : null)}
-        ${stat('Cash paid', money(f.cashOut), 'arrow-up-circle', 'danger', Auth.can('voucher.create') ? '#/vouchers' : null)}
-        ${stat('Transactions', f.txCount, 'activity', 'info')}
-        ${f.saleReturns ? stat('Sale returns', money(f.saleReturns), 'arrow-return-left', 'warning', '#/returns') : ''}
+        ${stat(t('sales_label'), money(f.sales), 'receipt', 'primary', '#/sales')}
+        ${Auth.can('purchase.manage') ? stat(t('purchases_label'), money(f.purchases), 'bag', 'secondary', '#/purchases') : ''}
+        ${stat(t('cashReceived'), money(f.cashIn), 'arrow-down-circle', 'success', Auth.can('voucher.create') ? '#/vouchers' : null)}
+        ${stat(t('cashPaid'), money(f.cashOut), 'arrow-up-circle', 'danger', Auth.can('voucher.create') ? '#/vouchers' : null)}
+        ${stat(t('transactions'), f.txCount, 'activity', 'info')}
+        ${f.saleReturns ? stat(t('sales_label') + ' ' + t('returns'), money(f.saleReturns), 'arrow-return-left', 'warning', '#/returns') : ''}
       </div>
-      <h2 class="h6 text-body-secondary">Overall</h2>
+      <h2 class="h6 text-body-secondary">${t('overall')}</h2>
       <div class="row g-2 mb-3">
-        ${stat('Receivables', money(rec), 'person-down', 'warning', Auth.can('reports.view') ? '#/reports/receivables' : '#/customers')}
-        ${Auth.can('purchase.manage') ? stat('Payables', money(pay), 'truck', 'danger', Auth.can('reports.view') ? '#/reports/payables' : null) : ''}
-        ${stat('Stock value', money(stockValue), 'boxes', 'primary', '#/stock')}
-        ${stat('Low stock items', low.length, 'exclamation-triangle', low.length ? 'danger' : 'success', '#/stock')}
-        ${stat('Overdue credit', `${money(overdue)} <span class="small text-body-secondary">(${overdueCount})</span>`, 'bell', overdue ? 'danger' : 'success', '#/whatsapp/reminders')}
-        ${stat('Expired batches', expiredN, 'x-octagon', expiredN ? 'danger' : 'success', '#/expiry?f=expired')}
-        ${stat(`Expiring ≤ ${nearDays} days`, expBatches.length - expiredN, 'hourglass-split', expBatches.length - expiredN ? 'warning' : 'success', '#/expiry')}
+        ${stat(t('receivables'), money(rec), 'person-down', 'warning', Auth.can('reports.view') ? '#/reports/receivables' : '#/customers')}
+        ${Auth.can('purchase.manage') ? stat(t('payables'), money(pay), 'truck', 'danger', Auth.can('reports.view') ? '#/reports/payables' : null) : ''}
+        ${stat(t('stockValue'), money(stockValue), 'boxes', 'primary', '#/stock')}
+        ${stat(t('lowStockItems'), low.length, 'exclamation-triangle', low.length ? 'danger' : 'success', '#/stock')}
+        ${stat(t('overdueCredit'), `${money(overdue)} <span class="small text-body-secondary">(${overdueCount})</span>`, 'bell', overdue ? 'danger' : 'success', '#/whatsapp/reminders')}
+        ${stat(t('expiredBatches'), expiredN, 'x-octagon', expiredN ? 'danger' : 'success', '#/expiry?f=expired')}
+        ${stat(`${t('expiringDays')} ${nearDays} ${t('days')}`, expBatches.length - expiredN, 'hourglass-split', expBatches.length - expiredN ? 'warning' : 'success', '#/expiry')}
       </div>
       <div class="row g-3">
         <div class="col-md-6"><h2 class="h6 text-body-secondary">Recent sales</h2><div class="list-card">${f.recent.map((s) => `<a class="list-row" href="#/sales/${encodeURIComponent(s.id)}"><div class="main"><div class="title">${esc(s.number)}</div><div class="sub">${esc(s.customerName)} · ${fmtTime(s.createdAt)}</div></div><div class="end fw-semibold money">${fmtNum(s.total)}</div></a>`).join('') || UI.emptyState('No sales yet today', 'receipt')}</div></div>

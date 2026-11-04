@@ -1,6 +1,7 @@
 // Application bootstrap: service worker, database, authentication gate, navigation and routing.
 import { CONFIG } from './config.js';
 import { applyTheme, getSettings, saveSettings } from './core/settings.js';
+import { t } from './core/i18n.js';
 import * as UI from './core/ui.js';
 import { esc } from './core/utils.js';
 import { openDB } from './db/idb.js';
@@ -96,10 +97,13 @@ window.addEventListener('offline', () => renderConn('offline'));
 // ---------- Navigation ----------
 function buildMenu() {
   let html = ''; let section = '';
-  for (const [name, [, title, perm, icon, sec]] of Object.entries(ROUTES)) {
+  const sectionMap = { Main: 'اہم', Inventory: 'انوینٹری', Parties: 'فریقین', Accounts: 'حسابات', Administration: 'انتظامیہ' };
+  for (const [name, [, titleKey, perm, icon, sec]] of Object.entries(ROUTES)) {
     if (!sec || (perm && !Auth.can(perm))) continue;
-    if (sec !== section) { section = sec; html += `<div class="nav-section">${esc(sec)}</div>`; }
-    html += `<a class="nav-link" href="#/${name}" data-route="${name}"><i class="bi bi-${icon}"></i>${esc(title)}</a>`;
+    const translatedSection = t(sec.toLowerCase()) || sectionMap[sec] || sec;
+    if (sec !== section) { section = sec; html += `<div class="nav-section">${esc(translatedSection)}</div>`; }
+    const translatedTitle = t(titleKey.replace(/\s+/g, '').toLowerCase()) || titleKey;
+    html += `<a class="nav-link" href="#/${name}" data-route="${name}"><i class="bi bi-${icon}"></i>${esc(translatedTitle)}</a>`;
   }
   $('.nav-menu').html(html);
   const u = Auth.user();
