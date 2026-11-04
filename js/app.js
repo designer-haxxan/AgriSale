@@ -86,10 +86,11 @@ export const canInstall = () => !!deferredInstall;
 
 // ---------- Connection badge ----------
 function renderConn(status) {
-  const map = { online: ['wifi', 'Online'], offline: ['wifi-off', 'Offline'] };
+  const map = { online: ['wifi', t('online')], offline: ['wifi-off', t('offline')] };
   const [icon, label] = map[status] || map.offline;
   $('#conn-badge').attr('class', `badge rounded-pill conn-${status}`).html(`<i class="bi bi-${icon}"></i> <span>${label}</span>`);
-  $('#login-conn').html(navigator.onLine ? '<i class="bi bi-wifi text-success"></i> Online' : '<i class="bi bi-wifi-off text-danger"></i> Offline — connect to the internet to sign in');
+  const offlineText = getSettings().language === 'ur' ? 'آف لائن — انٹرنیٹ سے جڑنے کے لیے سائن ان کریں' : 'Offline — connect to the internet to sign in';
+  $('#login-conn').html(navigator.onLine ? `<i class="bi bi-wifi text-success"></i> ${t('online')}` : `<i class="bi bi-wifi-off text-danger"></i> ${offlineText}`);
 }
 window.addEventListener('online', () => renderConn('online'));
 window.addEventListener('offline', () => renderConn('offline'));

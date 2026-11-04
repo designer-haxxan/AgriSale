@@ -62,6 +62,33 @@ export const LABELS = {
     expiringTip: 'sold first automatically',
     returns: 'Returns',
     days: 'days',
+
+    // Common buttons & actions
+    save: 'Save',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    edit: 'Edit',
+    add: 'Add',
+    search: 'Search',
+    filter: 'Filter',
+    export: 'Export',
+    import: 'Import',
+    print: 'Print',
+    logout: 'Log out',
+    settings: 'Settings',
+    help: 'Help',
+    close: 'Close',
+    confirm: 'Confirm',
+    ok: 'OK',
+
+    // Status & Messages
+    online: 'Online',
+    offline: 'Offline',
+    loading: 'Loading...',
+    error: 'Error',
+    success: 'Success',
+    warning: 'Warning',
+    info: 'Information',
   },
   ur: {
     // Navigation - Main
@@ -123,6 +150,33 @@ export const LABELS = {
     expiringTip: 'پہلے خودکار طور پر فروخت',
     returns: 'واپسی',
     days: 'دن',
+
+    // Common buttons & actions
+    save: 'محفوظ کریں',
+    cancel: 'منسوخ کریں',
+    delete: 'حذف کریں',
+    edit: 'ترمیم کریں',
+    add: 'شامل کریں',
+    search: 'تلاش کریں',
+    filter: 'فلٹر کریں',
+    export: 'برآمد کریں',
+    import: 'درآمد کریں',
+    print: 'پرنٹ کریں',
+    logout: 'لاگ آؤٹ کریں',
+    settings: 'سیٹنگز',
+    help: 'مدد',
+    close: 'بند کریں',
+    confirm: 'تصدیق کریں',
+    ok: 'ٹھیک ہے',
+
+    // Status & Messages
+    online: 'آن لائن',
+    offline: 'آف لائن',
+    loading: 'لوڈ ہو رہا ہے...',
+    error: 'خرابی',
+    success: 'کامیاب',
+    warning: 'انتباہ',
+    info: 'معلومات',
   },
 };
 
