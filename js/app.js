@@ -1,6 +1,6 @@
 // Application bootstrap: service worker, database, authentication gate, navigation and routing.
 import { CONFIG } from './config.js';
-import { applyTheme, getSettings } from './core/settings.js';
+import { applyTheme, getSettings, saveSettings } from './core/settings.js';
 import * as UI from './core/ui.js';
 import { esc } from './core/utils.js';
 import { openDB } from './db/idb.js';
@@ -106,6 +106,8 @@ function buildMenu() {
   $('#user-name').text(u.name);
   $('#user-role').text(Auth.ROLES[u.role] || u.role);
   $('#brand-name').text(getSettings().business.name || CONFIG.APP_NAME);
+  const lang = getSettings().language || 'en';
+  $('#lang-label').text(lang === 'en' ? 'اردو' : 'EN');
   $('#bottom-nav [data-route="pos"]').toggleClass('d-none', !Auth.can('sale.create'));
 }
 
@@ -200,6 +202,14 @@ $('#toggle-pw').on('click', () => {
   $('#toggle-pw i').attr('class', show ? 'bi bi-eye-slash' : 'bi bi-eye');
 });
 $('#logout-btn').on('click', () => doLogout(false));
+$('#lang-toggle').on('click', function () {
+  const currentLang = getSettings().language || 'en';
+  const newLang = currentLang === 'en' ? 'ur' : 'en';
+  saveSettings({ language: newLang });
+  $('#lang-label').text(newLang === 'en' ? 'اردو' : 'EN');
+  UI.toast(`Language changed to ${newLang === 'en' ? 'English' : 'Urdu'}. Refresh to see all changes.`, 'info');
+  setTimeout(() => location.reload(), 2000);
+});
 $('#install-btn').on('click', promptInstall);
 window.addEventListener('hashchange', route);
 document.addEventListener('settings:changed', () => { applyTheme(); if (Auth.user()) $('#brand-name').text(getSettings().business.name || CONFIG.APP_NAME); });
