@@ -58,26 +58,26 @@ export default {
     $el.html(`
       <div class="hero">
         <div class="hero-hi">${new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-        <h1>${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'}, ${esc(u.name.split(' ')[0])} 🌾</h1>
-        <div class="hero-sub">Today's sales</div>
+        <h1>${new Date().getHours() < 12 ? t('goodMorning') : new Date().getHours() < 17 ? t('goodAfternoon') : t('goodEvening')}, ${esc(u.name.split(' ')[0])} 🌾</h1>
+        <div class="hero-sub">${t('todaysSales')}</div>
         <div class="hero-sales money">${money(f.sales)}</div>
-        <div class="hero-sub">${f.salesCount} bill(s) · cash in ${money(f.cashIn)}</div>
+        <div class="hero-sub">${f.salesCount} ${t('bills')} · ${t('cashIn')} ${money(f.cashIn)}</div>
         <div class="hero-pills">
-          <a class="hero-pill ${overdue ? 'bad' : ''}" href="#/whatsapp/reminders"><i class="bi bi-bell"></i>${overdue ? `${overdueCount} overdue · ${money(overdue)}` : 'No overdue credit'}</a>
-          <a class="hero-pill ${expiredN ? 'bad' : expBatches.length ? 'warn' : ''}" href="#/expiry"><i class="bi bi-hourglass-split"></i>${expiredN ? `${expiredN} expired` : expBatches.length ? `${expBatches.length} expiring soon` : 'No expiry alerts'}</a>
-          <a class="hero-pill ${low.length ? 'warn' : ''}" href="#/stock"><i class="bi bi-box-seam"></i>${low.length ? `${low.length} low stock` : 'Stock healthy'}</a>
+          <a class="hero-pill ${overdue ? 'bad' : ''}" href="#/whatsapp/reminders"><i class="bi bi-bell"></i>${overdue ? `${overdueCount} ${t('overdue')} · ${money(overdue)}` : t('noOverdueCredit')}</a>
+          <a class="hero-pill ${expiredN ? 'bad' : expBatches.length ? 'warn' : ''}" href="#/expiry"><i class="bi bi-hourglass-split"></i>${expiredN ? `${expiredN} ${t('expired')}` : expBatches.length ? `${expBatches.length} ${t('expiringSoon')}` : t('noExpiryAlerts')}</a>
+          <a class="hero-pill ${low.length ? 'warn' : ''}" href="#/stock"><i class="bi bi-box-seam"></i>${low.length ? `${low.length} ${t('lowStock')}` : t('stockHealthy')}</a>
         </div>
         <svg class="hero-field" aria-hidden="true"></svg>
       </div>
-      ${!navigator.onLine ? '<div class="alert alert-secondary py-2 small"><i class="bi bi-wifi-off me-1"></i>You are offline. Everything you do is saved on this device.</div>' : ''}
-      ${Auth.can('backup.export') && (backupDays === null || backupDays >= 7) ? `<div class="alert alert-warning py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle"></i><div class="flex-grow-1">${backupDays === null ? 'No backup has been made on this device yet.' : `Last backup was ${backupDays} days ago.`} Your data only lives on this device.</div><a class="btn btn-sm btn-warning" href="#/backup">Back up</a></div>` : ''}
+      ${!navigator.onLine ? `<div class="alert alert-secondary py-2 small"><i class="bi bi-wifi-off me-1"></i>${t('youAreOffline')}</div>` : ''}
+      ${Auth.can('backup.export') && (backupDays === null || backupDays >= 7) ? `<div class="alert alert-warning py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle"></i><div class="flex-grow-1">${backupDays === null ? t('noBackupMade') : `${t('lastBackupWas')} ${backupDays} ${t('daysAgo')}`} ${t('yourDataOnly')}</div><a class="btn btn-sm btn-warning" href="#/backup">${t('backUp')}</a></div>` : ''}
       <div class="row g-2 mb-3">
         ${qa('#/stock', 'box-seam', t('stock'), 'product.manage')}${qa('#/vouchers', 'receipt-cutoff', t('expenses'), 'voucher.create')}
         ${qa('#/purchases', 'bag', `${t('bills')} (${f.purchasesCount})`, 'purchase.manage')}${qa('#/pos', 'cart-plus', t('newSale'), 'sale.create')}
         ${qa('#/vouchers', 'cash-coin', t('cashBook'), 'voucher.create')}${qa('#/customers', 'people', t('customers'))}
         ${qa('#/whatsapp', 'whatsapp', t('whatsapp'))}${qa('#/reports', 'bar-chart-line', t('reports'), 'reports.view')}
       </div>
-      ${expiredN ? `<div class="alert alert-danger py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-octagon"></i><div class="flex-grow-1">${expiredN} batch(es) in stock have expired. They are blocked from sale — return them to the supplier or write them off.</div><a class="btn btn-sm btn-danger" href="#/expiry?f=expired">Review</a></div>` : ''}
+      ${expiredN ? `<div class="alert alert-danger py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-octagon"></i><div class="flex-grow-1">${expiredN} ${t('batchesExpiredWarning')}</div><a class="btn btn-sm btn-danger" href="#/expiry?f=expired">${t('review')}</a></div>` : ''}
       <h2 class="h6 text-body-secondary">${t('today')}</h2>
       <div class="row g-2 mb-3">
         ${stat(t('sales_label'), money(f.sales), 'receipt', 'primary', '#/sales')}
@@ -98,9 +98,9 @@ export default {
         ${stat(`${t('expiringDays')} ${nearDays} ${t('days')}`, expBatches.length - expiredN, 'hourglass-split', expBatches.length - expiredN ? 'warning' : 'success', '#/expiry')}
       </div>
       <div class="row g-3">
-        <div class="col-md-6"><h2 class="h6 text-body-secondary">Recent sales</h2><div class="list-card">${f.recent.map((s) => `<a class="list-row" href="#/sales/${encodeURIComponent(s.id)}"><div class="main"><div class="title">${esc(s.number)}</div><div class="sub">${esc(s.customerName)} · ${fmtTime(s.createdAt)}</div></div><div class="end fw-semibold money">${fmtNum(s.total)}</div></a>`).join('') || UI.emptyState('No sales yet today', 'receipt')}</div></div>
-        <div class="col-md-6"><h2 class="h6 text-body-secondary">Expiring soon <span class="small fw-normal">— sold first automatically</span></h2><div class="list-card">${expBatches.slice(0, 6).map((b) => { const p = Catalog.product(b.productId); return p ? `<a class="list-row" href="#/stock/${encodeURIComponent(p.id)}"><div class="main"><div class="title">${esc(p.name)}</div><div class="sub">Batch ${esc(b.batchNo)} · ${fmtQty(b.qty)} ${esc(p.unit)}</div></div><div class="end">${expiryBadge(b.expiry, { short: true })}</div></a>` : ''; }).join('') || UI.emptyState(`Nothing expires within ${nearDays} days`, 'check-circle')}</div></div>
-        <div class="col-md-6"><h2 class="h6 text-body-secondary">Low stock</h2><div class="list-card">${low.slice(0, 6).map((p) => `<a class="list-row" href="#/stock/${encodeURIComponent(p.id)}"><div class="main"><div class="title">${esc(p.name)}</div><div class="sub">Min ${fmtQty(p.minStock || 0)}</div></div><div class="end"><span class="badge ${p.stock <= 0 ? 'text-bg-danger' : 'text-bg-warning'}">${fmtQty(p.stock)} ${esc(p.unit)}</span></div></a>`).join('') || UI.emptyState('All stock levels are fine', 'check-circle')}</div></div>
+        <div class="col-md-6"><h2 class="h6 text-body-secondary">${t('recentSales')}</h2><div class="list-card">${f.recent.map((s) => `<a class="list-row" href="#/sales/${encodeURIComponent(s.id)}"><div class="main"><div class="title">${esc(s.number)}</div><div class="sub">${esc(s.customerName)} · ${fmtTime(s.createdAt)}</div></div><div class="end fw-semibold money">${fmtNum(s.total)}</div></a>`).join('') || UI.emptyState(t('noSalesYet'), 'receipt')}</div></div>
+        <div class="col-md-6"><h2 class="h6 text-body-secondary">${t('expiringSoonLabel')} <span class="small fw-normal">— ${t('soldFirstAutomatically')}</span></h2><div class="list-card">${expBatches.slice(0, 6).map((b) => { const p = Catalog.product(b.productId); return p ? `<a class="list-row" href="#/stock/${encodeURIComponent(p.id)}"><div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${t('batch')} ${esc(b.batchNo)} · ${fmtQty(b.qty)} ${esc(p.unit)}</div></div><div class="end">${expiryBadge(b.expiry, { short: true })}</div></a>` : ''; }).join('') || UI.emptyState(`${t('nothingExpires')} ${nearDays} ${t('days')}`, 'check-circle')}</div></div>
+        <div class="col-md-6"><h2 class="h6 text-body-secondary">${t('lowStockLabel')}</h2><div class="list-card">${low.slice(0, 6).map((p) => `<a class="list-row" href="#/stock/${encodeURIComponent(p.id)}"><div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${t('min')} ${fmtQty(p.minStock || 0)}</div></div><div class="end"><span class="badge ${p.stock <= 0 ? 'text-bg-danger' : 'text-bg-warning'}">${fmtQty(p.stock)} ${esc(p.unit)}</span></div></a>`).join('') || UI.emptyState(t('allStockLevels'), 'check-circle')}</div></div>
       </div>`);
     buildHeroField($el.find('.hero-field')[0]);
     countUp($el[0]);
