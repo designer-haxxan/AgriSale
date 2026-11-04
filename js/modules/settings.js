@@ -48,7 +48,16 @@ export default {
         <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="allowExpiredSale" id="s-exps" ${s.allowExpiredSale ? 'checked' : ''} ${ro}><label class="form-check-label" for="s-exps">Allow selling expired batches (not recommended)</label></div></div>
         <div class="col-12 small text-body-secondary">Sales always take stock from the batch with the earliest expiry first (FEFO). A specific batch can still be chosen on each cart line.</div>
         ${manage ? '<div class="col-12"><button class="btn btn-primary">Save</button></div>' : ''}</form>`)}
-      ${section('Appearance', 'palette', `<select class="form-select f-theme"><option value="auto">Follow device</option><option value="light">Light</option><option value="dark">Dark</option></select>`)}
+      ${section('Appearance', 'palette', `
+        <div class="mb-3">
+          <label class="form-label">Theme</label>
+          <select class="form-select f-theme"><option value="auto">Follow device</option><option value="light">Light</option><option value="dark">Dark</option></select>
+        </div>
+        <div>
+          <label class="form-label">Language</label>
+          <select class="form-select f-language"><option value="en">English</option><option value="ur">اردو (Urdu)</option></select>
+        </div>
+      `)}
     </div><div class="col-lg-6">
       ${section('Receipt printer', 'printer', `
         <div class="alert ${cap.webBluetooth ? 'alert-info' : 'alert-secondary'} small py-2">${esc(cap.note)}</div>
@@ -97,6 +106,7 @@ export default {
     </div></div>`);
 
     $el.find('.f-theme').val(s.theme).on('change', function () { saveSettings({ theme: this.value }); });
+    $el.find('.f-language').val(s.language || 'en').on('change', function () { saveSettings({ language: this.value }); UI.toast('Language changed. Refresh the page to see updates.', 'info'); });
     $el.on('submit', '.f-business', (e) => {
       e.preventDefault();
       const v = Object.fromEntries(new FormData(e.target).entries());

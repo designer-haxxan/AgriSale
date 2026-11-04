@@ -5,6 +5,7 @@ const KEY = 'pos.settings';
 export const DEFAULT_SETTINGS = {
   business: { name: 'My Agri Store', address: '', phone: '', taxNo: '', licenseNo: '', footer: 'Thank you for your purchase!' },
   currency: 'Rs',
+  language: 'en',
   taxEnabled: false,
   taxRate: 0,
   allowNegativeStock: false,
