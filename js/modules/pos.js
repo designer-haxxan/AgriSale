@@ -264,8 +264,8 @@ async function loadPayAccounts() {
 // ---------- checkout ----------
 async function checkout() {
   try {
-    const t = Posting.previewDoc(st.lines, 0, 0);
-    if (!t) { UI.toast('Please fix invalid quantities/rates in the cart.', 'warning'); return; }
+    const preview = Posting.previewDoc(st.lines, 0, 0);
+    if (!preview) { UI.toast('Please fix invalid quantities/rates in the cart.', 'warning'); return; }
     if (!st.lines.length) return;
     const missing = st.lines.findIndex(needsBatch);
     if (missing >= 0) { UI.toast(`Enter batch & expiry for ${st.lines[missing].name}`, 'warning'); editLine(missing); return; }
