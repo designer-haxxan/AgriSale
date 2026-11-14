@@ -61,7 +61,8 @@ function showView(name) {
 }
 
 function fatal(msg) {
-  $('#splash-error').text(msg);
+  console.error('FATAL:', msg);
+  $('#splash-error').html(`<strong>Error:</strong> ${msg}<br><small>Please refresh the page or clear your browser cache.</small>`).css('color', '#dc3545');
   $('#splash .spinner-border').addClass('d-none');
 }
 
@@ -172,14 +173,20 @@ async function route() {
 
 // ---------- Auth gate ----------
 async function startApp() {
+  console.log('Starting app...');
+  console.log('Loading catalog...');
   await Catalog.load();
+  console.log('Building menu...');
   buildMenu();
+  console.log('Showing app view...');
   showView('app');
   renderConn(navigator.onLine ? 'online' : 'offline');
   clearInterval(expiryTimer);
   expiryTimer = setInterval(checkExpiry, 60000);
   if (navigator.storage?.persist) navigator.storage.persisted().then((p) => { if (!p) navigator.storage.persist().catch(() => {}); });
+  console.log('Routing...');
   route();
+  console.log('App started successfully');
 }
 
 async function doLogout(forced = false, reason = '') {
@@ -200,6 +207,9 @@ function checkExpiry() {
   doLogout(true, 'Your session has expired. Connect to the internet and sign in again.');
   return true;
 }
+
+// Debug logging
+console.log('AgriSale POS v' + CONFIG.APP_VERSION + ' initializing...');
 
 function showLogin(reason = '') {
   buildLoginScene(document.getElementById('login-scene'));
@@ -295,12 +305,22 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', a
 
 // ---------- Boot ----------
 (async function boot() {
-  applyTheme();
-  registerSW();
-  if (!window.jQuery || !window.bootstrap) return fatal('Required libraries failed to load. Connect to the internet once so the app can be cached for offline use.');
-  try { await openDB(); } catch (e) { return fatal('Could not open the local database: ' + (e.message || e)); }
-  const { user, reason } = Auth.restoreSession();
-  if (user) {
-    try { await startApp(); } catch (e) { console.error(e); fatal(e.message || String(e)); }
-  } else showLogin(reason);
+  try {
+    // Add 10 second timeout for boot process
+    const bootTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Boot timeout - app took too long to start')), 10000)
+    );
+
+    applyTheme();
+    registerSW();
+    if (!window.jQuery || !window.bootstrap) return fatal('Required libraries failed to load. Connect to the internet once so the app can be cached for offline use.');
+    try { await openDB(); } catch (e) { return fatal('Could not open the local database: ' + (e.message || e)); }
+    const { user, reason } = Auth.restoreSession();
+    if (user) {
+      try { await Promise.race([startApp(), bootTimeout]); } catch (e) { console.error(e); fatal(e.message || String(e)); }
+    } else showLogin(reason);
+  } catch (e) {
+    console.error('Boot error:', e);
+    fatal('Failed to start app: ' + (e.message || e));
+  }
 })();
