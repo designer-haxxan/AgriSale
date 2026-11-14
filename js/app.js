@@ -305,18 +305,13 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', a
 // ---------- Boot ----------
 (async function boot() {
   try {
-    // Add 10 second timeout for boot process
-    const bootTimeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Boot timeout - app took too long to start')), 10000)
-    );
-
     applyTheme();
     registerSW();
     if (!window.jQuery || !window.bootstrap) return fatal('Required libraries failed to load. Connect to the internet once so the app can be cached for offline use.');
     try { await openDB(); } catch (e) { return fatal('Could not open the local database: ' + (e.message || e)); }
     const { user, reason } = Auth.restoreSession();
     if (user) {
-      try { await Promise.race([startApp(), bootTimeout]); } catch (e) { console.error(e); fatal(e.message || String(e)); }
+      try { await startApp(); } catch (e) { console.error(e); fatal(e.message || String(e)); }
     } else showLogin(reason);
   } catch (e) {
     console.error('Boot error:', e);
