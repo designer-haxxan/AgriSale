@@ -263,18 +263,19 @@ async function loadPayAccounts() {
 
 // ---------- checkout ----------
 async function checkout() {
-  const t = Posting.previewDoc(st.lines, 0, 0);
-  if (!t) { UI.toast('Please fix invalid quantities/rates in the cart.', 'warning'); return; }
-  if (!st.lines.length) return;
-  const missing = st.lines.findIndex(needsBatch);
-  if (missing >= 0) { UI.toast(`Enter batch & expiry for ${st.lines[missing].name}`, 'warning'); editLine(missing); return; }
-  const sale = isSale();
-  const s = getSettings();
-  const canDate = Auth.can(sale ? 'sale.edit' : 'purchase.manage');
-  const lastAcc = pref.get('payAccount', 'cash');
-  const m = UI.modal({
-    title: sale ? 'Payment' : 'Save purchase', static: true,
-    body: `<form class="checkout" autocomplete="off">
+  try {
+    const t = Posting.previewDoc(st.lines, 0, 0);
+    if (!t) { UI.toast('Please fix invalid quantities/rates in the cart.', 'warning'); return; }
+    if (!st.lines.length) return;
+    const missing = st.lines.findIndex(needsBatch);
+    if (missing >= 0) { UI.toast(`Enter batch & expiry for ${st.lines[missing].name}`, 'warning'); editLine(missing); return; }
+    const sale = isSale();
+    const s = getSettings();
+    const canDate = Auth.can(sale ? 'sale.edit' : 'purchase.manage');
+    const lastAcc = pref.get('payAccount', 'cash');
+    const m = UI.modal({
+      title: sale ? t('paymentMethod') : t('savePurchase'), static: true,
+      body: `<form class="checkout" autocomplete="off">
       <div class="text-center mb-2"><div class="small text-body-secondary">Amount due</div><div class="checkout-total money co-total"></div></div>
       <button type="button" class="btn btn-light w-100 mb-3 text-start co-party"><i class="bi bi-person me-2"></i><span></span><i class="bi bi-chevron-right float-end"></i></button>
       <div class="row g-2 mb-3">
@@ -297,7 +298,7 @@ async function checkout() {
       ${sale ? `<div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" id="co-print" ${s.printer.autoPrint ? 'checked' : ''}><label class="form-check-label" for="co-print">Print receipt</label></div>` : ''}
       <div class="alert alert-danger py-2 small d-none co-error mt-2 mb-0"></div>
     </form>`,
-    footer: `<button class="btn btn-light" data-bs-dismiss="modal">Back</button><button class="btn btn-success btn-lg flex-grow-1 co-complete"><i class="bi bi-check2-circle me-1"></i>${sale ? 'Complete sale' : 'Save purchase'}</button>`,
+    footer: `<button class="btn btn-light" data-bs-dismiss="modal">${t('back')}</button><button class="btn btn-success btn-lg flex-grow-1 co-complete"><i class="bi bi-check2-circle me-1"></i>${sale ? t('completeSale') : t('savePurchase')}</button>`,
   });
   const $m = m.$el;
   let tenderedTouched = st.tendered !== null && st.editId;
@@ -355,7 +356,7 @@ async function checkout() {
   let busy = false;
   $m.find('.co-complete').on('click', async function () {
     if (busy) return; busy = true;
-    const $b = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Saving…');
+    const $b = $(this).prop('disabled', true).html(`<span class="spinner-border spinner-border-sm me-2"></span>${sale ? t('completeSale') : t('savePurchase')}...`);
     $m.find('.co-error').addClass('d-none');
     try {
       const account = $m.find('[name=account]').val();
@@ -382,12 +383,17 @@ async function checkout() {
       if (doPrint) await Printer.printDocument('sale', doc, { silentFail: true });
       afterSave(doc);
     } catch (err) {
-      console.warn(err);
+      console.error('Payment error:', err);
       $m.find('.co-error').text(err.message || String(err)).removeClass('d-none');
-      $b.prop('disabled', false).html(`<i class="bi bi-check2-circle me-1"></i>${sale ? 'Complete sale' : 'Save purchase'}`);
+      $b.prop('disabled', false).html(`<i class="bi bi-check2-circle me-1"></i>${sale ? t('completeSale') : t('savePurchase')}`);
     } finally { busy = false; }
   });
+  m.bs.show();
   update();
+  } catch (e) {
+    console.error('Checkout error:', e);
+    UI.toast(e.message || 'Payment error', 'danger');
+  }
 }
 
 function afterSave(doc) {

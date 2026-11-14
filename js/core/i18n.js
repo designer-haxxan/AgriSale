@@ -80,6 +80,7 @@ export const LABELS = {
     close: 'Close',
     confirm: 'Confirm',
     ok: 'OK',
+    back: 'Back',
 
     // Status & Messages
     online: 'Online',
@@ -242,6 +243,7 @@ export const LABELS = {
     close: 'بند کریں',
     confirm: 'تصدیق کریں',
     ok: 'ٹھیک ہے',
+    back: 'واپس جائیں',
 
     // Status & Messages
     online: 'آن لائن',
