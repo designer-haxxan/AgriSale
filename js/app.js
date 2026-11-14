@@ -133,7 +133,6 @@ function buildMenu() {
   $('#user-name').text(u.name);
   $('#user-role').text(Auth.ROLES[u.role] || u.role);
   $('#brand-name').text(getSettings().business.name || CONFIG.APP_NAME);
-  const lang = getSettings().language || 'en';
   $('#lang-label').text(lang === 'en' ? 'اردو' : 'EN').attr('dir', lang === 'ur' ? 'rtl' : 'ltr');
   $('#html-root').attr('dir', lang === 'ur' ? 'rtl' : 'ltr');
   $('html').attr('lang', lang === 'ur' ? 'ur' : 'en');
