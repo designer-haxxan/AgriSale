@@ -116,14 +116,18 @@ window.addEventListener('offline', () => renderConn('offline'));
 function buildMenu() {
   let html = ''; let section = '';
   const sectionMap = { Main: 'اہم', Inventory: 'انوینٹری', Parties: 'فریقین', Accounts: 'حسابات', Administration: 'انتظامیہ' };
+  const lang = getSettings().language || 'en';
+
   for (const [name, [, titleKey, perm, icon, sec]] of Object.entries(ROUTES)) {
     if (!sec || (perm && !Auth.can(perm))) continue;
     const translatedSection = t(sec.toLowerCase()) || sectionMap[sec] || sec;
     if (sec !== section) { section = sec; html += `<div class="nav-section">${esc(translatedSection)}</div>`; }
-    const translatedTitle = t(titleKey.replace(/\s+/g, '').toLowerCase()) || titleKey;
-    html += `<a class="nav-link" href="#/${name}" data-route="${name}"><i class="bi bi-${icon}"></i>${esc(translatedTitle)}</a>`;
+    // Use proper case for titles - capitalize first letter of each word
+    const titleForDisplay = lang === 'ur' ? (t(titleKey.replace(/\s+/g, '').toLowerCase()) || titleKey) : titleKey;
+    html += `<a class="nav-link" href="#/${name}" data-route="${name}"><i class="bi bi-${icon}"></i><span class="nav-text">${esc(titleForDisplay)}</span></a>`;
   }
   $('.nav-menu').html(html);
+  $('#sidebar .nav-menu').html(html);
   const u = Auth.user();
   $('#user-name').text(u.name);
   $('#user-role').text(Auth.ROLES[u.role] || u.role);
@@ -252,9 +256,17 @@ $('#lang-toggle').on('click', function () {
   const currentLang = getSettings().language || 'en';
   const newLang = currentLang === 'en' ? 'ur' : 'en';
   saveSettings({ language: newLang });
-  $('#lang-label').text(newLang === 'en' ? 'اردو' : 'EN').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
+
+  // Update direction and language attributes
   $('#html-root').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
-  $('html').attr('lang', newLang);
+  $('html').attr('lang', newLang === 'ur' ? 'ur' : 'en').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
+
+  // Update language label
+  $('#lang-label').text(newLang === 'en' ? 'اردو' : 'EN').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
+
+  // Force rebuild of menu with new language
+  buildMenu();
+
   UI.toast(`Language changed to ${newLang === 'en' ? 'English' : 'Urdu'}. Refreshing...`, 'info');
   setTimeout(() => location.reload(), 2000);
 });

@@ -553,10 +553,217 @@ html[dir="rtl"] .text-end {
   .list-row .sub { font-size: 0.75rem; }
 }
 
-/* RTL Responsive fixes */
+/* RTL COMPLETE OVERHAUL */
+html[dir="rtl"] {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+html[dir="rtl"] body {
+  direction: rtl !important;
+}
+
+/* Sidebar RTL fixes */
+html[dir="rtl"] #sidebar {
+  left: auto !important;
+  right: 0 !important;
+  border-right: 0 !important;
+  border-left: 1px solid var(--bs-border-color) !important;
+}
+
+html[dir="rtl"] .sidebar-brand {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+html[dir="rtl"] .sidebar-brand img {
+  margin-left: 8px !important;
+  margin-right: 0 !important;
+}
+
+/* Navigation menu RTL */
+html[dir="rtl"] .nav-menu .nav-link {
+  border-left: 0 !important;
+  border-right: 3px solid transparent !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+html[dir="rtl"] .nav-menu .nav-link i {
+  margin-left: 8px !important;
+  margin-right: 0 !important;
+}
+
+html[dir="rtl"] .nav-menu .nav-link.active {
+  border-right-color: var(--bs-primary) !important;
+  border-left-color: transparent !important;
+}
+
+html[dir="rtl"] .nav-menu .nav-section {
+  text-align: right;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+/* Topbar RTL */
+html[dir="rtl"] .app-topbar {
+  flex-direction: row-reverse;
+  padding-left: 12px !important;
+  padding-right: 8px !important;
+}
+
+html[dir="rtl"] #topbar-title {
+  text-align: right;
+}
+
+/* Bottom nav RTL */
+html[dir="rtl"] #bottom-nav {
+  flex-direction: row-reverse;
+}
+
+/* Content RTL */
+html[dir="rtl"] #content {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Cards and containers RTL */
+html[dir="rtl"] .card {
+  text-align: right;
+}
+
+html[dir="rtl"] .btn {
+  text-align: center;
+}
+
+html[dir="rtl"] .list-row {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .list-row .end {
+  text-align: left;
+}
+
+/* Forms RTL */
+html[dir="rtl"] .form-control,
+html[dir="rtl"] .form-select {
+  direction: rtl;
+  text-align: right;
+  padding-right: 12px !important;
+  padding-left: 0.75rem !important;
+}
+
+html[dir="rtl"] .form-label {
+  text-align: right;
+}
+
+html[dir="rtl"] .input-group {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .input-group-text {
+  order: 2;
+  margin-left: 0 !important;
+  margin-right: -1px !important;
+}
+
+/* Dropdown RTL */
+html[dir="rtl"] .dropdown-menu {
+  left: auto !important;
+  right: 0 !important;
+  text-align: right;
+}
+
+/* Modal RTL */
+html[dir="rtl"] .modal-content {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .close {
+  margin-left: auto !important;
+  margin-right: -0.5rem !important;
+}
+
+/* Alert RTL */
+html[dir="rtl"] .alert {
+  text-align: right;
+}
+
+/* Badge RTL */
+html[dir="rtl"] .badge {
+  text-align: right;
+}
+
+/* POS RTL fixes */
 html[dir="rtl"] .pos-left { transform: translateX(100%) !important; }
 html[dir="rtl"] #sidebar { transform: translateX(100%); }
 html[dir="rtl"] #sidebar.show { transform: translateX(0); }
+
+html[dir="rtl"] .pos-meta {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .pos-footer {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .cart-line {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+html[dir="rtl"] .cart-line .info {
+  text-align: right;
+}
+
+html[dir="rtl"] .cart-line .amt {
+  text-align: left;
+}
+
+/* Offcanvas RTL */
+html[dir="rtl"] .offcanvas {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .offcanvas-start {
+  left: auto;
+  right: 0;
+}
+
+html[dir="rtl"] .offcanvas-header {
+  flex-direction: row-reverse;
+}
+
+html[dir="rtl"] .offcanvas-title {
+  text-align: right;
+}
+
+html[dir="rtl"] .btn-close {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+/* Offcanvas menu items RTL */
+html[dir="rtl"] .offcanvas .nav-menu .nav-link {
+  border-left: 0;
+  border-right: 3px solid transparent;
+}
+
+html[dir="rtl"] .offcanvas .nav-menu .nav-link.active {
+  border-right-color: var(--bs-primary);
+  border-left-color: transparent;
+}
+
+/* Offcanvas body RTL */
+html[dir="rtl"] .offcanvas-body {
+  direction: rtl;
+  text-align: right;
+}
 
 html[dir="rtl"] @media (max-width: 768px) {
   .modal { animation: slideInLeft 0.3s ease-out; }
