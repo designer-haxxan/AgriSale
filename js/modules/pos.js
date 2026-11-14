@@ -3,6 +3,7 @@ import * as idb from '../db/idb.js';
 import * as UI from '../core/ui.js';
 import { esc, fmtNum, fmtQty, uuid, round2, round3, num, debounce, today, AppError } from '../core/utils.js';
 import { getSettings, pref } from '../core/settings.js';
+import { t } from '../core/i18n.js';
 import * as Auth from '../services/auth.js';
 import * as Catalog from '../services/catalog.js';
 import * as Posting from '../services/posting.js';
@@ -276,9 +277,9 @@ async function checkout() {
     body: `<form class="checkout" autocomplete="off">
       <div class="text-center mb-2"><div class="small text-body-secondary">Amount due</div><div class="checkout-total money co-total"></div></div>
       <button type="button" class="btn btn-light w-100 mb-3 text-start co-party"><i class="bi bi-person me-2"></i><span></span><i class="bi bi-chevron-right float-end"></i></button>
-      <div class="row g-2 mb-2">
+      <div class="row g-2 mb-3">
         <div class="col-6"><label class="form-label">Bill discount</label><div class="input-group"><input name="discount" class="form-control" inputmode="decimal" value="${st.discount || ''}" placeholder="0"><button type="button" class="btn btn-outline-secondary co-pct" title="Discount as percent">%</button></div></div>
-        <div class="col-6"><label class="form-label">Pay via</label><select name="account" class="form-select">${UI.options(payAccounts, st.payAccount || lastAcc)}</select></div>
+        <div class="col-6"><label class="form-label">${t('payVia')}</label><select name="account" class="form-select bank-account-select">${payAccounts.map((acc) => `<option value="${esc(acc.id)}" ${(st.payAccount || lastAcc) === acc.id ? 'selected' : ''}>${esc(acc.name)} ${acc.type === 'bank' ? '🏦' : '💵'}</option>`).join('')}</select></div>
       </div>
       <div class="small text-body-secondary co-breakdown mb-2"></div>
       <label class="form-label">${sale ? 'Amount received' : 'Amount paid'}</label>
@@ -336,6 +337,10 @@ async function checkout() {
   $m.on('click', '.co-party', async () => {
     m.bs.hide(); await new Promise((r) => $m.one('hidden.bs.modal', r));
     await choosePartyFn(); m.bs.show(); tenderedTouched = false; update();
+  });
+  $m.on('change', '[name=account]', function() {
+    st.payAccount = this.value;
+    pref.set('payAccount', this.value);
   });
   // Our modal helper removes the element on hide; keep it alive while choosing a party.
   $m.off('hidden.bs.modal');

@@ -9,6 +9,23 @@ import * as Auth from './services/auth.js';
 import * as Catalog from './services/catalog.js';
 import { buildLoginScene } from './core/fx.js';
 
+// GitHub update checker
+async function checkForUpdates() {
+  try {
+    const response = await fetch('https://api.github.com/repos/designer-haxxan/AgriSale/releases/latest');
+    if (!response.ok) return null;
+    const latest = await response.json();
+    const latestVersion = latest.tag_name?.replace(/^v/, '') || '';
+    const currentVersion = CONFIG.APP_VERSION;
+    if (latestVersion && latestVersion > currentVersion) {
+      return { newVersion: latestVersion, downloadUrl: latest.html_url, releaseNotes: latest.body };
+    }
+  } catch (e) {
+    console.warn('Update check failed:', e);
+  }
+  return null;
+}
+
 const $ = window.jQuery;
 
 // Route table: name → [loader, title, permission|null, icon, menu section]
@@ -242,6 +259,23 @@ $('#lang-toggle').on('click', function () {
   setTimeout(() => location.reload(), 2000);
 });
 $('#install-btn').on('click', promptInstall);
+
+// Update checker
+$(document).on('click', '#check-updates-btn', async function() {
+  const $btn = $(this);
+  const originalHTML = $btn.html();
+  $btn.html(`<span class="spinner-border spinner-border-sm me-1"></span>${t('checkingForUpdates')}`).prop('disabled', true);
+
+  const update = await checkForUpdates();
+  if (update) {
+    UI.toast(`${t('updateAvailable')}: v${update.newVersion} — <a href="${update.downloadUrl}" target="_blank">${t('download')}</a>`, 'success', 10000);
+  } else {
+    UI.toast(t('upToDate'), 'info', 3000);
+  }
+
+  $btn.html(originalHTML).prop('disabled', false);
+});
+
 window.addEventListener('hashchange', route);
 document.addEventListener('settings:changed', () => { applyTheme(); if (Auth.user()) $('#brand-name').text(getSettings().business.name || CONFIG.APP_NAME); });
 document.addEventListener('auth:changed', () => { if (Auth.user()) buildMenu(); });
