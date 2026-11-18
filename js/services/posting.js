@@ -13,8 +13,8 @@ const NUMBER_STORE = {
   sale: 'sales', purchase: 'purchases', saleReturn: 'saleReturns', purchaseReturn: 'purchaseReturns',
   receipt: 'vouchers', payment: 'vouchers', transfer: 'vouchers', adjustment: 'adjustments',
 };
-export const ACCOUNT_TYPES = { cash: 'Cash', bank: 'Bank / Wallet', income: 'Income', expense: 'Expense', asset: 'Other Asset', liability: 'Liability', equity: 'Equity' };
-const DEBIT_NORMAL = new Set(['cash', 'bank', 'asset', 'expense', 'customer']);
+export const ACCOUNT_TYPES = { cash: 'Cash', bank: 'Bank / Wallet', kisan: 'Kisan Card', income: 'Income', expense: 'Expense', asset: 'Other Asset', liability: 'Liability', equity: 'Equity' };
+const DEBIT_NORMAL = new Set(['cash', 'bank', 'kisan', 'asset', 'expense', 'customer']);
 export const isDebitNormal = (type) => DEBIT_NORMAL.has(type);
 
 export const partyAccount = (kind, id) => (kind === 'customers' ? 'C:' : 'S:') + id;
