@@ -258,7 +258,7 @@ async function choosePartyFn() {
 }
 
 async function loadPayAccounts() {
-  payAccounts = (await idb.getAll('accounts')).filter((a) => ['cash', 'bank'].includes(a.type) && a.active).sort((a, b) => (a.id === 'cash' ? -1 : b.id === 'cash' ? 1 : a.name.localeCompare(b.name)));
+  payAccounts = (await idb.getAll('accounts')).filter((a) => ['cash', 'bank', 'kisan'].includes(a.type) && a.active).sort((a, b) => (a.id === 'cash' ? -1 : b.id === 'cash' ? 1 : a.name.localeCompare(b.name)));
 }
 
 // ---------- checkout ----------
@@ -280,7 +280,12 @@ async function checkout() {
       <button type="button" class="btn btn-light w-100 mb-3 text-start co-party"><i class="bi bi-person me-2"></i><span></span><i class="bi bi-chevron-right float-end"></i></button>
       <div class="row g-2 mb-3">
         <div class="col-6"><label class="form-label">Bill discount</label><div class="input-group"><input name="discount" class="form-control" inputmode="decimal" value="${st.discount || ''}" placeholder="0"><button type="button" class="btn btn-outline-secondary co-pct" title="Discount as percent">%</button></div></div>
-        <div class="col-6"><label class="form-label">${t('payVia')}</label><select name="account" class="form-select bank-account-select">${payAccounts.map((acc) => `<option value="${esc(acc.id)}" ${(st.payAccount || lastAcc) === acc.id ? 'selected' : ''}>${esc(acc.name)} ${acc.type === 'bank' ? '🏦' : '💵'}</option>`).join('')}</select></div>
+        <div class="col-6"><label class="form-label">${t('payVia')}</label><select name="account" class="form-select bank-account-select">${payAccounts.map((acc) => {
+          let icon = '💵';
+          if (acc.type === 'bank') icon = '🏦';
+          else if (acc.type === 'kisan') icon = '🌾';
+          return `<option value="${esc(acc.id)}" ${(st.payAccount || lastAcc) === acc.id ? 'selected' : ''}>${esc(acc.name)} ${icon}</option>`;
+        }).join('')}</select></div>
       </div>
       <div class="small text-body-secondary co-breakdown mb-2"></div>
       <label class="form-label">${sale ? 'Amount received' : 'Amount paid'}</label>

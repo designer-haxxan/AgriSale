@@ -55,6 +55,11 @@ export async function refreshParty(kind, id) {
   const p = await idb.get(kind, id);
   if (p) parties[kind].set(id, p); else parties[kind].delete(id);
 }
+export async function refreshAllParties(kind) {
+  const all = await idb.getAll(kind);
+  parties[kind].clear();
+  all.forEach((p) => parties[kind].set(p.id, p));
+}
 
 export const product = (id) => products.get(id);
 export const allProducts = () => [...products.values()];

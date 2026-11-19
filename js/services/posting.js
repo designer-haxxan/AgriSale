@@ -607,7 +607,7 @@ export async function deleteParty(kind, id) {
     await audit(t, 'delete_' + kind.slice(0, -1), { name: p.name });
     return 'deleted';
   });
-  await Catalog.refreshParty(kind, id);
+  await Catalog.refreshAllParties(kind);
   document.dispatchEvent(new CustomEvent('data:changed'));
   return res;
 }
