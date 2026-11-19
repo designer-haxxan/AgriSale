@@ -602,7 +602,11 @@ export async function deleteParty(kind, id) {
       await audit(t, 'deactivate_' + kind.slice(0, -1), { name: p.name });
       return 'deactivated';
     }
-    await t.deleteByIndex('entries', 'txnId', 'open:' + acc);
+    // Delete all entries for this party account (including opening balance)
+    const allEntries = await t.getAllByIndex('entries', 'accountId', acc);
+    for (const entry of allEntries) {
+      await t.delete('entries', entry.id);
+    }
     await t.delete(kind, id);
     await audit(t, 'delete_' + kind.slice(0, -1), { name: p.name });
     return 'deleted';
