@@ -80,7 +80,17 @@ async function renderDetail(el, id) {
   $el.on('click', '.btn-edit', async () => { if (await editAccount(a)) renderDetail(el, id); });
   $el.on('click', '.btn-del', async () => {
     if (!await UI.confirmDialog(`Delete account "${a.name}"? Accounts with transactions are deactivated instead.`, { okLabel: 'Delete', okClass: 'btn-danger' })) return;
-    try { const r = await Posting.deleteAccount(id); UI.toast(r === 'deleted' ? 'Account deleted' : 'Account deactivated'); location.hash = '#/accounts'; } catch (e) { UI.toastError(e); }
+    try {
+      const r = await Posting.deleteAccount(id);
+      if (r === 'deleted') {
+        UI.toast('Account deleted successfully', 'success');
+      } else {
+        UI.toast('Account has transactions - marked as inactive instead', 'info');
+      }
+      document.dispatchEvent(new CustomEvent('data:changed'));
+      await new Promise(resolve => setTimeout(resolve, 500));
+      location.hash = '#/accounts';
+    } catch (e) { UI.toastError(e); }
   });
   $el.on('click', '.btn-print', () => printHTML(`<div class="print-report"><h2>${esc(getSettings().business.name)}</h2><div>Account ledger: <b>${esc(a.name)}</b></div><div>Period: ${from} to ${to}</div><br>${ledgerTable(led, { debitNormal: dn })}</div>`, { page: 'A4' }));
 }
