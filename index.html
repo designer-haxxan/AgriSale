@@ -45,11 +45,11 @@
           <img src="icons/icon-192.png" alt="AgriSale" width="80" height="80">
           <div class="brand-text">
             <h1>Agri<span>Sale</span> POS</h1>
-            <p class="brand-tagline">🌾 Seeds · 🧪 Fertilizer · 🛡️ Pesticide</p>
+            <p class="brand-tagline">Seeds · Fertilizer · Pesticide</p>
           </div>
         </div>
         <button class="btn btn-light btn-sm lang-toggle" id="login-lang-toggle" title="Toggle language">
-          <i class="bi bi-globe me-1"></i><span id="lang-text">عربی</span>
+          <i class="bi bi-globe me-1"></i><span id="lang-text">اردو</span>
         </button>
       </div>
 
@@ -63,16 +63,8 @@
           </div>
 
           <!-- Error/Notice Messages -->
-          <div id="login-notice" class="alert alert-warning alert-dismissible fade d-none" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            <span id="notice-text"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-          <div id="login-error" class="alert alert-danger alert-dismissible fade d-none" role="alert">
-            <i class="bi bi-exclamation-circle-fill me-2"></i>
-            <span id="error-text"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
+          <div id="login-notice" class="alert alert-warning small d-none" role="alert"></div>
+          <div id="login-error" class="alert alert-danger py-2 small d-none" role="alert"></div>
           <div id="login-prefill-hint" class="alert alert-info d-none text-center" dir="rtl" lang="ur">
             <i class="bi bi-info-circle me-2"></i>یوزر نیم اور پاس ورڈ خود بخود بھر دیے گئے ہیں۔ بس لاگ ان دبائیں
           </div>
@@ -103,15 +95,6 @@
               </div>
             </div>
 
-            <!-- Remember Me & Help -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="login-remember" name="remember">
-                <label class="form-check-label" for="login-remember" id="remember-text">Remember me</label>
-              </div>
-              <a href="#" class="text-primary text-decoration-none small">Need help?</a>
-            </div>
-
             <!-- Submit Button -->
             <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold mb-3" id="login-btn">
               <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
@@ -125,54 +108,14 @@
         </div>
       </div>
 
-      <!-- Features Section -->
-      <div class="login-features">
-        <h3 class="text-center small fw-600 mb-3 text-muted">Why AgriSale POS?</h3>
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-icon">🌱</div>
-            <div class="feature-title">Smart Batches</div>
-            <div class="feature-desc">Track batch numbers & expiry dates</div>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">⏳</div>
-            <div class="feature-title">FEFO Method</div>
-            <div class="feature-desc">Sell oldest stock first</div>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">📒</div>
-            <div class="feature-title">Farmer Credit</div>
-            <div class="feature-desc">Easy credit management</div>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">💬</div>
-            <div class="feature-title">WhatsApp Ready</div>
-            <div class="feature-desc">Send invoices via WhatsApp</div>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">📱</div>
-            <div class="feature-title">Works Offline</div>
-            <div class="feature-desc">No internet? No problem!</div>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🌍</div>
-            <div class="feature-title">Bilingual</div>
-            <div class="feature-desc">English + اردو Support</div>
-          </div>
-        </div>
+      <!-- Features -->
+      <div class="login-features" aria-hidden="true">
+        <span class="feat-chip">🌱 Batches &amp; expiry</span>
+        <span class="feat-chip">📒 Farmer credit</span>
+        <span class="feat-chip">💬 WhatsApp</span>
+        <span class="feat-chip">📱 Works offline</span>
       </div>
-
-      <!-- Footer -->
-      <div class="login-footer">
-        <div class="footer-content">
-          <div class="text-center small text-muted mb-2">
-            <i class="bi bi-info-circle me-1"></i>Internet required for first login. Works offline after.
-          </div>
-          <div class="text-center small text-muted">
-            <span id="app-version">v2.3.1</span> • For Pakistan's Agricultural Dealers
-          </div>
-        </div>
-      </div>
+      <div class="login-footer small text-center">Internet is required to sign in. After that, the POS works offline.</div>
     </div>
   </div>
 

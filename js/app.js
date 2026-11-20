@@ -229,6 +229,7 @@ function updateLoginUI() {
   $('#login-username-label').text(t('username'));
   $('#login-password-label').text(t('password'));
   $('#login-btn').text(t('signIn'));
+  $('#lang-text').text(lang === 'ur' ? 'English' : 'اردو');
   const offlineText = lang === 'ur' ? t('offline') : t('offline');
   $('#login-conn').html(navigator.onLine ? `<i class="bi bi-wifi text-success"></i> ${t('online')}` : `<i class="bi bi-wifi-off text-danger"></i> ${offlineText}`);
   $('#html-root').attr('dir', lang === 'ur' ? 'rtl' : 'ltr');

@@ -29,7 +29,7 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-app
 
 /* Login - Complete Redesign */
 #view-login { overflow-y: auto; overflow-x: hidden; }
-.login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.login-container { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 0; }
 .login-wrap {
   min-height: 100vh;
   display: flex;
@@ -603,3 +603,29 @@ button.list-row { width: 100%; background: none; border-left: 0; border-right: 0
 .cart-line.needs-batch { box-shadow: inset 3px 0 0 var(--bs-danger); }
 .cart-line .meta .badge { font-weight: 500; }
 .product-tile .s .badge { font-size: .65rem; white-space: normal; }
+
+/* Login: compact so it fits one screen without scrolling */
+.login-features { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; margin-top: 0; }
+.feat-chip { padding: 6px 12px; border-radius: 20px; font-size: .78rem; font-weight: 600; color: #fff; background: rgba(0,0,0,.35); backdrop-filter: blur(6px); white-space: nowrap; }
+.login-footer { color: #fff; background: rgba(0,0,0,.35); border-radius: 12px; padding: 8px 14px; font-size: .75rem; }
+.login-wrap { min-height: 100dvh; gap: 14px; padding: 12px; }
+.login-card .card-body { padding: 22px 24px; }
+.welcome-section { margin-bottom: 14px; }
+.welcome-section h2 { font-size: 1.35rem; margin-bottom: 2px; }
+.login-card .form-group { margin-bottom: 14px !important; }
+.login-brand img { width: 56px; height: 56px; }
+.brand-text h1 { font-size: 1.6rem; }
+@media (max-height: 700px) { .login-features { display: none; } .login-wrap { justify-content: flex-start; } }
+@media (max-width: 576px) {
+  .login-header { flex-direction: row; align-items: center; }
+  .login-brand { flex-direction: row; gap: 10px; text-align: left; }
+  .login-brand img { width: 44px; height: 44px; border-radius: 12px; }
+  .brand-text h1 { font-size: 1.25rem; }
+  .brand-tagline { font-size: .68rem; letter-spacing: .02em; }
+  .lang-toggle { align-self: center; padding: 6px 10px; min-height: 36px; }
+  .login-wrap { gap: 10px; }
+  .login-card .card-body { padding: 16px 16px; }
+  .welcome-section { margin-bottom: 10px; }
+  .login-card .form-control { padding: 10px 12px; }
+}
+@media (max-height: 700px) { .login-footer { display: none; } }
