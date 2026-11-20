@@ -162,7 +162,10 @@ body.focus-mode #content { padding-bottom: 0; }
 #loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 2500; display: flex; align-items: center; justify-content: center; }
 #loading-overlay.d-none { display: none !important; }
 .toast-container { z-index: 2600; }
-.dropdown-menu { z-index: 2000 !important; position: fixed !important; }
+.dropdown-menu { z-index: 2000 !important; }
+.dropdown { position: relative; }
+.pos-meta { position: relative; }
+.page-header { overflow: visible; }
 
 /* Cards & lists */
 .card { border-color: var(--bs-border-color-translucent); }
@@ -197,7 +200,7 @@ button.list-row { width: 100%; background: none; border-left: 0; border-right: 0
 /* POS */
 .pos { display: grid; grid-template-columns: 1fr; gap: 12px; margin: -12px -12px 0; }
 .pos-left { display: none; }
-.pos-right { display: flex; flex-direction: column; min-height: calc(100vh - var(--topbar-h)); background: var(--bs-body-bg); }
+.pos-right { display: flex; flex-direction: column; min-height: calc(100vh - var(--topbar-h)); background: var(--bs-body-bg); overflow: visible; }
 @media (min-width: 992px) {
   .pos { grid-template-columns: 1fr 440px; margin: -20px -24px -32px; gap: 0; }
   .pos-left { display: flex; flex-direction: column; height: calc(100vh - var(--topbar-h)); padding: 12px; overflow: hidden; }
