@@ -1,7 +1,7 @@
 // Deployment configuration.
 export const CONFIG = {
   APP_NAME: 'AgriSale POS',
-  APP_VERSION: '2.0.8',
+  APP_VERSION: '2.0.9',
   SCHEMA_VERSION: 2,
   BACKUP_VERSION: 2,
   // Login API: POST {AUTH_API_BASE}/login. The server does not send CORS headers, so the app must be

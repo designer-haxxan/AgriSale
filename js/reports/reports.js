@@ -46,8 +46,8 @@ async function partyBalances(kind, asOf) {
     const bal = round2(kind === 'customers' ? b : -b);
     if (Math.abs(bal) < 0.005) continue;
     const p = Catalog.party(kind, acc.slice(2));
-    // Only show active parties (skip deleted ones)
-    if (!p) continue;
+    // Only show active parties (skip deleted/inactive ones)
+    if (!p || !p.active) continue;
     rows.push([{ v: p.name, href: `#/${kind}/${acc.slice(2)}` }, p.phone || '', bal]);
   }
   rows.sort((a, b) => b[2] - a[2]);
@@ -154,9 +154,11 @@ export const REPORTS = {
       for (const [id, a] of aging) {
         if (a.balance < 0.005) continue;
         const c = Catalog.party('customers', id);
+        // Skip inactive/deleted customers
+        if (!c || !c.active) continue;
         const b = [0, 0, 0, 0];
         for (const o of a.open) b[o.days <= 30 ? 0 : o.days <= 60 ? 1 : o.days <= 90 ? 2 : 3] += o.amount;
-        rows.push([{ v: c?.name || id, href: `#/customers/${id}` }, c?.phone || '', a.balance, round2(b[0]), round2(b[1]), round2(b[2]), round2(b[3]), a.overdue, a.oldestDue]);
+        rows.push([{ v: c.name, href: `#/customers/${id}` }, c.phone || '', a.balance, round2(b[0]), round2(b[1]), round2(b[2]), round2(b[3]), a.overdue, a.oldestDue]);
       }
       rows.sort((x, y) => y[7] - x[7] || y[2] - x[2]);
       return { summary: [['Customers', rows.length], ['Receivable', money(sum(rows, (r) => r[2]))], ['Overdue', money(sum(rows, (r) => r[7]))], ['Older than 90 days', money(sum(rows, (r) => r[6]))]],
