@@ -46,7 +46,9 @@ async function partyBalances(kind, asOf) {
     const bal = round2(kind === 'customers' ? b : -b);
     if (Math.abs(bal) < 0.005) continue;
     const p = Catalog.party(kind, acc.slice(2));
-    rows.push([{ v: p?.name || acc, href: `#/${kind}/${acc.slice(2)}` }, p?.phone || '', bal]);
+    // Only show active parties (skip deleted ones)
+    if (!p) continue;
+    rows.push([{ v: p.name, href: `#/${kind}/${acc.slice(2)}` }, p.phone || '', bal]);
   }
   rows.sort((a, b) => b[2] - a[2]);
   return rows;
