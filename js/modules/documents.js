@@ -1,4 +1,4 @@
-// Sales, purchases and returns: history lists, document views, returns and voiding.
+// Sales, purchases and returns: history lists, document views, and permanent deletion.
 import * as idb from '../db/idb.js';
 import * as UI from '../core/ui.js';
 import { esc, fmtNum, fmtQty, fmtDate, fmtDateTime, fmtTime, today, uuid, num, round2, AppError, debounce } from '../core/utils.js';
@@ -24,7 +24,6 @@ const K = {
 };
 
 function statusBadge(d) {
-  if (d.status === 'void') return '<span class="badge text-bg-danger">Void</span>';
   if (d.balance > 0.004) return `<span class="badge text-bg-warning">${d.paid > 0 ? 'Partial' : 'Credit'}</span>`;
   return '';
 }
@@ -37,15 +36,15 @@ async function renderList(el, kind) {
   const newBtn = kind === 'sale' ? (Auth.can('sale.create') ? '<a class="btn btn-primary btn-sm" href="#/pos"><i class="bi bi-plus-lg"></i> New sale</a>' : '')
     : '<a class="btn btn-primary btn-sm" href="#/purchase/new"><i class="bi bi-plus-lg"></i> New purchase</a>';
   $el.html(UI.pageHeader(kind === 'sale' ? 'Sales' : 'Purchases', newBtn) + dateFilter(from, to, `<div class="flex-grow-2"><label class="form-label small mb-0">Search</label><input type="search" name="q" class="form-control form-control-sm" placeholder="Number or ${kind === 'sale' ? 'customer' : 'supplier'}"></div>
-      <div><label class="form-label small mb-0">Status</label><select name="status" class="form-select form-select-sm"><option value="">All</option><option value="due">Unpaid / partial</option><option value="void">Void</option></select></div>`) + `
+      <div><label class="form-label small mb-0">Status</label><select name="status" class="form-select form-select-sm"><option value="">All</option><option value="due">Unpaid / partial</option></select></div>`) + `
     <div class="row g-2 mb-2 summary"></div><div class="list-card list"></div>`);
   let docs = [];
   const draw = () => {
     const q = ($el.find('[name=q]').val() || '').toLowerCase();
     const s = $el.find('[name=status]').val();
     const list = docs.filter((d) => (!q || `${d.number} ${d[k.party]}`.toLowerCase().includes(q))
-      && (!s || (s === 'void' ? d.status === 'void' : d.status !== 'void' && d.balance > 0.004)));
-    const live = list.filter((d) => d.status !== 'void');
+      && (!s || (s === 'due' && d.balance > 0.004)));
+    const live = list;
     const tot = live.reduce((a, d) => a + d.total, 0); const paid = live.reduce((a, d) => a + d.paid, 0);
     $el.find('.summary').html([['Documents', live.length, false], ['Total', tot, true], ['Paid', paid, true], ['Due', tot - paid, true]]
       .map(([l, v, m]) => `<div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body py-2"><div class="stat-label">${l}</div><div class="fw-bold money">${m ? money(v) : v}</div></div></div></div>`).join(''));
@@ -81,23 +80,20 @@ async function renderDoc(el, kind, id) {
   const $el = $(el).off();
   const d = await idb.get(k.store, id);
   if (!d) { $el.html(UI.pageHeader(k.label, '', `#/${k.list}`) + UI.emptyState('Document not found', 'x-circle')); return; }
-  const items = d.status === 'void' ? (d.voidedItems || []) : await idb.getAllByIndex(k.items, k.fk, id);
+  const items = await idb.getAllByIndex(k.items, k.fk, id);
   items.sort((a, b) => a.line - b.line);
   const returns = (await idb.getAllByIndex(k.retStore, k.fk, id)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const liveReturns = returns.filter((r) => r.status !== 'void');
-  const isVoid = d.status === 'void';
-  const canEdit = !isVoid && !liveReturns.length && Auth.can(kind === 'sale' ? 'sale.edit' : 'purchase.manage');
-  const canReturn = !isVoid && Auth.can(kind === 'sale' ? 'sale.return' : 'purchase.manage');
-  const canVoid = !isVoid && !liveReturns.length && Auth.can(kind === 'sale' ? 'sale.void' : 'purchase.manage');
+  const canEdit = !returns.length && Auth.can(kind === 'sale' ? 'sale.edit' : 'purchase.manage');
+  const canReturn = Auth.can(kind === 'sale' ? 'sale.return' : 'purchase.manage');
+  const canDelete = !returns.length && Auth.can(kind === 'sale' ? 'sale.void' : 'purchase.manage');
   const partyLink = d[k.partyId] ? `<a href="#/${k.partyRoute}/${encodeURIComponent(d[k.partyId])}">${esc(d[k.party])}</a>` : esc(d[k.party]);
   $el.html(UI.pageHeader(d.number, `${kind === 'sale' ? '<button class="btn btn-success btn-sm btn-wa"><i class="bi bi-whatsapp"></i><span class="d-none d-sm-inline"> WhatsApp</span></button>' : ''}<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i><span class="d-none d-sm-inline"> Print</span></button>
       <div class="dropdown"><button class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-label="Actions"><i class="bi bi-three-dots-vertical"></i></button><ul class="dropdown-menu dropdown-menu-end">
         ${canEdit ? `<li><a class="dropdown-item" href="#/${k.editRoute}/edit/${encodeURIComponent(id)}"><i class="bi bi-pencil me-2"></i>Edit</a></li>` : ''}
         ${canReturn ? `<li><button class="dropdown-item btn-return"><i class="bi bi-arrow-return-left me-2"></i>Return items</button></li>` : ''}
-        ${canVoid ? `<li><button class="dropdown-item text-danger btn-void"><i class="bi bi-x-circle me-2"></i>Void</button></li>` : ''}
-        ${!canEdit && !canReturn && !canVoid ? '<li><span class="dropdown-item-text small text-body-secondary">No actions available</span></li>' : ''}
+        ${canDelete ? `<li><button class="dropdown-item text-danger btn-delete"><i class="bi bi-trash me-2"></i>Delete permanently</button></li>` : ''}
+        ${!canEdit && !canReturn && !canDelete ? '<li><span class="dropdown-item-text small text-body-secondary">No actions available</span></li>' : ''}
       </ul></div>`, `#/${k.list}`) + `
-    ${isVoid ? `<div class="alert alert-danger">Voided ${fmtDateTime(d.voidedAt)} by ${esc(d.voidedBy)}${d.voidReason ? ': ' + esc(d.voidReason) : ''}. Stock and ledger effects were reversed.</div>` : ''}
     <div class="row g-3">
       <div class="col-lg-8">
         <div class="card mb-3"><div class="card-body">
@@ -135,12 +131,9 @@ async function renderDoc(el, kind, id) {
   $el.on('click', '.btn-print', () => Printer.printDocument(kind, d));
   $el.on('click', '.btn-wa', async () => (await loadWA()).shareSale(d));
   $el.on('click', '.btn-return', async () => { const r = await returnDialog(kind, d); if (r) location.hash = `#/returns/${kind}/${r.id}`; });
-  $el.on('click', '.btn-void', async () => {
-    const reason = await UI.formModal({ title: `Void ${d.number}`, submitLabel: 'Void document', submitClass: 'btn-danger',
-      body: `<p>Voiding reverses stock and all ledger entries of this ${k.label.toLowerCase()}. The number stays reserved for audit purposes. This cannot be undone.</p><label class="form-label">Reason</label><input name="reason" class="form-control" required>`,
-      onSubmit: (v) => { if (!v.reason.trim()) throw new AppError('Enter a reason.'); return v.reason; } });
-    if (!reason) return;
-    try { await Posting.voidDocument(kind, id, reason); UI.toast(`${d.number} voided`); renderDoc(el, kind, id); } catch (e) { UI.toastError(e); }
+  $el.on('click', '.btn-delete', async () => {
+    if (!await UI.confirmDialog(`Delete ${d.number} permanently? All transactions will be removed. This cannot be undone.`, { okLabel: 'Delete permanently', okClass: 'btn-danger' })) return;
+    try { await Posting.deleteDocument(kind, id); UI.toast(`✅ ${d.number} deleted permanently`); location.hash = `#/${k.list}`; } catch (e) { UI.toastError(e); }
   });
 }
 
@@ -214,9 +207,8 @@ async function renderReturn(el, kind, id) {
   const r = await idb.get(store, id);
   if (!r) { $el.html(UI.pageHeader('Return', '', '#/returns') + UI.emptyState('Return not found', 'x-circle')); return; }
   const retKind = kind === 'sale' ? 'saleReturn' : 'purchaseReturn';
-  const canVoid = r.status !== 'void' && Auth.can(kind === 'sale' ? 'sale.void' : 'purchase.manage');
-  $el.html(UI.pageHeader(r.number, `${kind === 'sale' ? '<button class="btn btn-success btn-sm btn-wa"><i class="bi bi-whatsapp"></i><span class="d-none d-sm-inline"> WhatsApp</span></button>' : ''}<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i> Print</button>${canVoid ? '<button class="btn btn-outline-danger btn-sm btn-void"><i class="bi bi-x-circle"></i> Void</button>' : ''}`, '#/returns') + `
-    ${r.status === 'void' ? `<div class="alert alert-danger">Voided ${fmtDateTime(r.voidedAt)} by ${esc(r.voidedBy)}</div>` : ''}
+  const canDelete = Auth.can(kind === 'sale' ? 'sale.void' : 'purchase.manage');
+  $el.html(UI.pageHeader(r.number, `${kind === 'sale' ? '<button class="btn btn-success btn-sm btn-wa"><i class="bi bi-whatsapp"></i><span class="d-none d-sm-inline"> WhatsApp</span></button>' : ''}<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i> Print</button>${canDelete ? '<button class="btn btn-outline-danger btn-sm btn-delete"><i class="bi bi-trash"></i> Delete</button>' : ''}`, '#/returns') + `
     <div class="card"><div class="card-body">
       <div class="mb-2">${kind === 'sale' ? 'Sale' : 'Purchase'} return against <a href="#/${K[kind].list}/${encodeURIComponent(r[K[kind].fk])}">${esc(r.docNo)}</a> · ${esc(r.partyName || '')} · ${fmtDate(r.date)}</div>
       <div class="table-responsive"><table class="table table-sm table-report"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
@@ -227,9 +219,9 @@ async function renderReturn(el, kind, id) {
     </div></div>`);
   $el.on('click', '.btn-print', () => Printer.printDocument(retKind, r));
   $el.on('click', '.btn-wa', async () => (await loadWA()).shareReturn(kind, r));
-  $el.on('click', '.btn-void', async () => {
-    if (!await UI.confirmDialog(`Void ${r.number}? Stock and ledger effects of this return will be reversed.`, { okLabel: 'Void', okClass: 'btn-danger' })) return;
-    try { await Posting.voidDocument(retKind, id); UI.toast('Return voided'); renderReturn(el, kind, id); } catch (e) { UI.toastError(e); }
+  $el.on('click', '.btn-delete', async () => {
+    if (!await UI.confirmDialog(`Delete return ${r.number} permanently? This cannot be undone.`, { okLabel: 'Delete permanently', okClass: 'btn-danger' })) return;
+    try { await Posting.deleteDocument(retKind, id); UI.toast('✅ Return deleted permanently'); location.hash = '#/returns'; } catch (e) { UI.toastError(e); }
   });
 }
 
