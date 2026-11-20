@@ -117,20 +117,29 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-app
 .nav-menu { margin: 0; padding: 0; }
 .nav-menu .nav-link {
   color: var(--bs-body-color);
-  padding: 12px 16px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   border-left: 3px solid transparent;
   transition: all 0.2s ease;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.95rem;
+  min-height: 48px;
+  letter-spacing: 0.3px;
+  border-radius: 8px;
+  margin: 2px 8px;
 }
 .nav-menu .nav-link i {
-  font-size: 1.15rem;
-  width: 24px;
-  text-align: center;
+  font-size: 1.3rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  border-radius: 6px;
+  background: rgba(46, 125, 50, 0.1);
 }
 .nav-menu .nav-text {
   flex: 1;
@@ -192,8 +201,30 @@ body.focus-mode #content { padding-bottom: 0; }
 .stat-card { border: 0; border-radius: 12px; }
 .stat-card .stat-label { font-size: .75rem; color: var(--bs-secondary-color); text-transform: uppercase; letter-spacing: .03em; }
 .stat-card .stat-value { font-size: 1.25rem; font-weight: 700; }
-.quick-action { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 6px; border-radius: 12px; background: var(--bs-body-bg); text-decoration: none; color: var(--bs-body-color); font-size: .8rem; text-align: center; border: 1px solid var(--bs-border-color-translucent); }
-.quick-action i { font-size: 1.5rem; color: var(--bs-primary); }
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 8px;
+  border-radius: 14px;
+  background: var(--bs-body-bg);
+  text-decoration: none;
+  color: var(--bs-body-color);
+  font-size: .85rem;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid var(--bs-border-color-translucent);
+  min-height: 100px;
+  transition: all 0.2s ease;
+}
+.quick-action i {
+  font-size: 1.8rem;
+  color: var(--bs-primary);
+  transition: transform 0.3s ease;
+}
+.quick-action:hover i { transform: scale(1.1); }
 .quick-action:active { transform: scale(.97); }
 .list-card { background: var(--bs-body-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--bs-border-color-translucent); }
 .list-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--bs-border-color-translucent); color: inherit; text-decoration: none; }
