@@ -629,13 +629,9 @@ export async function deleteParty(kind, id) {
       await t.delete('entries', entry.id);
     }
 
-    // Delete the party and clear opening balance
-    p.active = 0;
-    p.openingBalance = 0;
-    p.openingDate = null;
-    await t.put(kind, p);
+    // Delete the party permanently
     await t.delete(kind, id);
-    console.log(`Party record deleted: ${p.name}`);
+    console.log(`Party record permanently deleted: ${p.name}`);
     await audit(t, 'delete_' + kind.slice(0, -1), { name: p.name });
     return 'deleted';
   });
@@ -786,12 +782,20 @@ export async function deleteProduct(id) {
     const p = await t.get('products', id);
     if (!p) throw new AppError('Product not found.');
     const moves = await t.getAllByIndex('stockMoves', 'productId', id);
-    const used = moves.some((m) => m.type !== 'opening') || await t.countByIndex('saleItems', 'productId', id) || await t.countByIndex('purchaseItems', 'productId', id);
     ctx.touched.add(id);
-    if (used) { p.active = 0; p.updatedAt = nowISO(); await t.put('products', p); await audit(t, 'deactivate_product', { name: p.name }); return 'deactivated'; }
+    console.log(`Deleting product permanently: ${p.name}`);
+    // Delete all stock moves, batches, and sale/purchase items for this product
     for (const m of moves) await t.delete('stockMoves', m.id);
     await t.deleteByIndex('batches', 'productId', id);
+    // Delete sale items
+    const saleItems = await t.getAllByIndex('saleItems', 'productId', id);
+    for (const si of saleItems) await t.delete('saleItems', si.id);
+    // Delete purchase items
+    const purchaseItems = await t.getAllByIndex('purchaseItems', 'productId', id);
+    for (const pi of purchaseItems) await t.delete('purchaseItems', pi.id);
+    // Delete the product
     await t.delete('products', id);
+    console.log(`Product permanently deleted: ${p.name}`);
     await audit(t, 'delete_product', { name: p.name });
     return 'deleted';
   });

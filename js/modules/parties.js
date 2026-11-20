@@ -132,8 +132,8 @@ async function renderDetail(el, kind, id) {
   bindDateFilter($el, (f, t) => { from = f; to = t; load(); });
   $el.on('click', '.btn-edit', async () => { if (await editParty(kind, Catalog.party(kind, id))) renderDetail(el, kind, id); });
   $el.on('click', '.btn-del', async () => {
-    if (!await UI.confirmDialog(`Delete ${p.name}? If there are transactions, the ${one.toLowerCase()} will be deactivated instead.`, { okLabel: 'Delete', okClass: 'btn-danger' })) return;
-    try { const r = await Posting.deleteParty(kind, id); UI.toast(r === 'deleted' ? `${one} deleted` : `${one} deactivated (has transactions)`); location.hash = `#/${kind}`; } catch (e) { UI.toastError(e); }
+    if (!await UI.confirmDialog(`Delete ${p.name} permanently? All transactions will be deleted. This cannot be undone.`, { okLabel: 'Delete permanently', okClass: 'btn-danger' })) return;
+    try { await Posting.deleteParty(kind, id); UI.toast(`✅ ${one} and all data deleted permanently`); location.hash = `#/${kind}`; } catch (e) { UI.toastError(e); }
   });
   $el.on('click', '.btn-pay', async () => {
     const { newVoucher } = await import('./vouchers.js');

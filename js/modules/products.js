@@ -184,8 +184,8 @@ async function productActions(p, redraw) {
   m.$el.find('.btn-edit').on('click', async () => { m.close(); await m.closed; if (await editProduct(p)) redraw(); });
   m.$el.find('.btn-del').on('click', async () => {
     m.close(); await m.closed;
-    if (!await UI.confirmDialog(`Delete "${p.name}"? Products with transactions are deactivated instead.`, { okLabel: 'Delete', okClass: 'btn-danger' })) return;
-    try { const r = await Posting.deleteProduct(p.id); UI.toast(r === 'deleted' ? 'Product deleted' : 'Product deactivated (has transactions)'); redraw(); } catch (e) { UI.toastError(e); }
+    if (!await UI.confirmDialog(`Delete "${p.name}" permanently? All sales and purchase records for this product will be deleted. This cannot be undone.`, { okLabel: 'Delete permanently', okClass: 'btn-danger' })) return;
+    try { await Posting.deleteProduct(p.id); UI.toast('✅ Product and all related data deleted permanently'); redraw(); } catch (e) { UI.toastError(e); }
   });
 }
 
