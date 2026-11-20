@@ -55,7 +55,18 @@ async function renderList(el, kind) {
     50, UI.emptyState(`No ${kind === 'sale' ? 'sales' : 'purchases'} found for this period`, 'receipt'));
   };
   const load = async () => {
-    docs = (await idb.getAllByIndex(k.store, 'date', IDBKeyRange.bound(from, to))).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+    let allDocs = await idb.getAllByIndex(k.store, 'date', IDBKeyRange.bound(from, to));
+    // Filter out documents from deleted suppliers/customers
+    if (kind === 'purchase') {
+      const suppliers = await idb.getAll('suppliers');
+      const activeSuppIds = new Set(suppliers.filter(s => s.active).map(s => s.id));
+      allDocs = allDocs.filter(d => activeSuppIds.has(d.supplierId));
+    } else if (kind === 'sale') {
+      const customers = await idb.getAll('customers');
+      const activeCustIds = new Set(customers.filter(c => c.active).map(c => c.id));
+      allDocs = allDocs.filter(d => activeCustIds.has(d.customerId));
+    }
+    docs = allDocs.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
     draw();
   };
   bindDateFilter($el, (f, t) => { from = f; to = t; load(); });
