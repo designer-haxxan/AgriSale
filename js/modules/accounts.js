@@ -74,6 +74,7 @@ async function renderList(el) {
   };
   await load();
   $el.on('click', '.btn-add', async () => { if (await editAccount()) load(); });
+  document.addEventListener('data:changed', load);
 }
 
 async function renderDetail(el, id) {
