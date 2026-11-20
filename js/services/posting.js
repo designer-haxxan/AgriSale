@@ -842,7 +842,15 @@ export const deleteHold = (id) => idb.write(['holds'], (t) => t.delete('holds', 
 // ---------- BALANCES & LEDGERS (always derived from entries) ----------
 export async function allBalances() {
   const map = new Map();
+  const [suppliers, customers] = await idb.read(['suppliers', 'customers'], (t) => Promise.all([t.getAll('suppliers'), t.getAll('customers')]));
+  const activeSuppIds = new Set(suppliers.filter(s => s.active).map(s => `S:${s.id}`));
+  const activeCustIds = new Set(customers.filter(c => c.active).map(c => `C:${c.id}`));
+
   await idb.each('entries', null, null, (e) => {
+    // Skip entries from deleted suppliers/customers (they start with S: or C:)
+    if (e.accountId.startsWith('S:') && !activeSuppIds.has(e.accountId)) return;
+    if (e.accountId.startsWith('C:') && !activeCustIds.has(e.accountId)) return;
+
     const b = map.get(e.accountId) || { debit: 0, credit: 0 };
     b.debit += e.debit; b.credit += e.credit; map.set(e.accountId, b);
   });
