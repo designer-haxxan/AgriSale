@@ -597,9 +597,11 @@ export async function deleteParty(kind, id) {
   const res = await idb.write([kind, 'entries', 'sales', 'purchases', 'saleItems', 'purchaseItems', 'saleReturns', 'purchaseReturns', 'auditLog'], async (t) => {
     const p = await t.get(kind, id);
     if (!p) throw new AppError('Not found.');
+    console.log(`Deleting ${kind.slice(0, -1)}: ${p.name} (ID: ${id})`);
 
     // Delete ALL documents (sales/purchases) for this party
     const docs = await t.getAllByIndex(docStore, docIdKey, id);
+    console.log(`Found ${docs.length} documents to delete`);
     for (const doc of docs) {
       // Delete items in document
       const items = await t.getAllByIndex(kind === 'customers' ? 'saleItems' : 'purchaseItems', 'docId', doc.id);
@@ -619,14 +621,21 @@ export async function deleteParty(kind, id) {
       await t.delete(docStore, doc.id);
     }
 
-    // Delete all entries for this party account
+    // Delete ALL entries/transactions for this party (including opening balance)
     const allEntries = await t.getAllByIndex('entries', 'accountId', acc);
+    console.log(`Found ${allEntries.length} entries/transactions to delete (includes opening balance)`);
     for (const entry of allEntries) {
+      console.log(`Deleting entry: ${entry.refType} - ${entry.description}`);
       await t.delete('entries', entry.id);
     }
 
-    // Delete the party
+    // Delete the party and clear opening balance
+    p.active = 0;
+    p.openingBalance = 0;
+    p.openingDate = null;
+    await t.put(kind, p);
     await t.delete(kind, id);
+    console.log(`Party record deleted: ${p.name}`);
     await audit(t, 'delete_' + kind.slice(0, -1), { name: p.name });
     return 'deleted';
   });
@@ -670,13 +679,19 @@ export async function deleteAccount(id) {
     if (!a) throw new AppError('Account not found.');
     if (a.system) throw new AppError('System accounts cannot be deleted.');
     console.log('Deleting account:', a.name, 'with id:', id);
-    // Delete ALL entries for this account (complete cascade delete)
+    // Delete ALL entries/transactions for this account (including opening balance)
     const allEntries = await t.getAllByIndex('entries', 'accountId', id);
-    console.log('Found', allEntries.length, 'entries to delete');
+    console.log('Found', allEntries.length, 'entries/transactions to delete (includes opening balance)');
     for (const entry of allEntries) {
+      console.log(`Deleting entry: ${entry.refType} - ${entry.description}`);
       await t.delete('entries', entry.id);
     }
     console.log('Deleted all entries, now deleting account');
+    // Clear opening balance from account before deletion
+    a.openingBalance = 0;
+    a.openingDate = null;
+    await t.put('accounts', a);
+    // Delete account
     await t.delete('accounts', id);
     console.log('Account deleted successfully');
     await audit(t, 'delete_account', { name: a.name });
