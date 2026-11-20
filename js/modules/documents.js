@@ -83,9 +83,10 @@ async function renderDoc(el, kind, id) {
   const items = await idb.getAllByIndex(k.items, k.fk, id);
   items.sort((a, b) => a.line - b.line);
   const returns = (await idb.getAllByIndex(k.retStore, k.fk, id)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const canEdit = !returns.length && Auth.can(kind === 'sale' ? 'sale.edit' : 'purchase.manage');
+  const liveReturns = returns;
+  const canEdit = !liveReturns.length && Auth.can(kind === 'sale' ? 'sale.edit' : 'purchase.manage');
   const canReturn = Auth.can(kind === 'sale' ? 'sale.return' : 'purchase.manage');
-  const canDelete = !returns.length && Auth.can(kind === 'sale' ? 'sale.void' : 'purchase.manage');
+  const canDelete = !liveReturns.length && Auth.can(kind === 'sale' ? 'sale.void' : 'purchase.manage');
   const partyLink = d[k.partyId] ? `<a href="#/${k.partyRoute}/${encodeURIComponent(d[k.partyId])}">${esc(d[k.party])}</a>` : esc(d[k.party]);
   $el.html(UI.pageHeader(d.number, `${kind === 'sale' ? '<button class="btn btn-success btn-sm btn-wa"><i class="bi bi-whatsapp"></i><span class="d-none d-sm-inline"> WhatsApp</span></button>' : ''}<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i><span class="d-none d-sm-inline"> Print</span></button>
       <div class="dropdown"><button class="btn btn-light btn-sm" data-bs-toggle="dropdown" aria-label="Actions"><i class="bi bi-three-dots-vertical"></i></button><ul class="dropdown-menu dropdown-menu-end">
@@ -105,7 +106,7 @@ async function renderDoc(el, kind, id) {
             <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Disc</th><th class="num">Amount</th></tr></thead>
             <tbody>${items.map((i) => `<tr><td>${esc(i.name)}${i.sku ? `<div class="small text-body-secondary">${esc(i.sku)}</div>` : ''}${batchLine(i)}</td><td class="num">${fmtQty(i.qty)} ${esc(i.unit || '')}</td><td class="num">${fmtNum(i.rate)}</td><td class="num">${i.discount ? fmtNum(i.discount) : ''}</td><td class="num">${fmtNum(i.amount)}</td></tr>`).join('')}</tbody>
           </table></div></div></div>
-        ${returns.length ? `<h2 class="h6">Returns</h2><div class="list-card mb-3">${returns.map((r) => `<a class="list-row" href="#/returns/${kind}/${encodeURIComponent(r.id)}"><div class="main"><div class="title">${esc(r.number)} ${r.status === 'void' ? '<span class="badge text-bg-danger">Void</span>' : ''}</div><div class="sub">${fmtDate(r.date)} · ${r.items.length} item(s)</div></div><div class="end money">${fmtNum(r.total)}</div></a>`).join('')}</div>` : ''}
+        ${returns.length ? `<h2 class="h6">Returns</h2><div class="list-card mb-3">${returns.map((r) => `<a class="list-row" href="#/returns/${kind}/${encodeURIComponent(r.id)}"><div class="main"><div class="title">${esc(r.number)}</div><div class="sub">${fmtDate(r.date)} · ${r.items.length} item(s)</div></div><div class="end money">${fmtNum(r.total)}</div></a>`).join('')}</div>` : ''}
       </div>
       <div class="col-lg-4">
         <div class="card mb-3"><div class="card-body">
