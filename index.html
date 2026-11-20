@@ -36,49 +36,143 @@
   </div>
 
   <!-- Login -->
-  <div id="view-login" class="d-none">
+  <div id="view-login" class="d-none login-container">
     <svg class="login-scene" id="login-scene" aria-hidden="true"></svg>
     <div class="login-wrap">
-      <div class="login-brand">
-        <img src="icons/icon-192.png" alt="" width="76" height="76">
-        <h1>Agri<span>Sale</span></h1>
-        <p>Seeds · Fertilizer · Pesticide</p>
-      </div>
-      <div class="card login-card">
-        <div class="card-body p-4">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-              <div class="fw-semibold login-title" id="login-welcome">Welcome back</div>
-              <div class="text-body-secondary small login-subtitle" id="login-subtitle">Sign in to open your shop</div>
-            </div>
-            <button class="btn btn-link text-body px-1 ms-2" id="login-lang-toggle" title="Toggle language"><i class="bi bi-globe"></i></button>
+      <!-- Header Section -->
+      <div class="login-header">
+        <div class="login-brand">
+          <img src="icons/icon-192.png" alt="AgriSale" width="80" height="80">
+          <div class="brand-text">
+            <h1>Agri<span>Sale</span> POS</h1>
+            <p class="brand-tagline">🌾 Seeds · 🧪 Fertilizer · 🛡️ Pesticide</p>
           </div>
-          <div id="login-notice" class="alert alert-warning small d-none"></div>
+        </div>
+        <button class="btn btn-light btn-sm lang-toggle" id="login-lang-toggle" title="Toggle language">
+          <i class="bi bi-globe me-1"></i><span id="lang-text">عربی</span>
+        </button>
+      </div>
+
+      <!-- Login Card -->
+      <div class="card login-card">
+        <div class="card-body">
+          <!-- Welcome Message -->
+          <div class="welcome-section">
+            <h2 id="login-welcome">Welcome back! 👋</h2>
+            <p id="login-subtitle">Sign in to manage your agricultural business</p>
+          </div>
+
+          <!-- Error/Notice Messages -->
+          <div id="login-notice" class="alert alert-warning alert-dismissible fade d-none" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span id="notice-text"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+          <div id="login-error" class="alert alert-danger alert-dismissible fade d-none" role="alert">
+            <i class="bi bi-exclamation-circle-fill me-2"></i>
+            <span id="error-text"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+          <div id="login-prefill-hint" class="alert alert-info d-none text-center" dir="rtl" lang="ur">
+            <i class="bi bi-info-circle me-2"></i>یوزر نیم اور پاس ورڈ خود بخود بھر دیے گئے ہیں۔ بس لاگ ان دبائیں
+          </div>
+
+          <!-- Login Form -->
           <form id="login-form" novalidate>
-            <div class="form-floating mb-3">
-              <input type="text" class="form-control" id="login-username" name="username" placeholder="Username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
-              <label for="login-username" id="login-username-label">Username</label>
+            <!-- Username Field -->
+            <div class="form-group mb-4">
+              <label for="login-username" class="form-label fw-600" id="login-username-label">Username</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-person-fill text-muted"></i></span>
+                <input type="text" class="form-control border-start-0" id="login-username" name="username"
+                       placeholder="Enter your username" autocomplete="username" autocapitalize="none"
+                       autocorrect="off" spellcheck="false" required>
+              </div>
             </div>
-            <div class="form-floating mb-3 position-relative">
-              <input type="password" class="form-control" id="login-password" name="password" placeholder="Password" autocomplete="current-password" required>
-              <label for="login-password" id="login-password-label">Password</label>
-              <button type="button" class="btn btn-link position-absolute top-50 end-0 translate-middle-y text-body-secondary" id="toggle-pw" aria-label="Show password"><i class="bi bi-eye"></i></button>
+
+            <!-- Password Field -->
+            <div class="form-group mb-4 position-relative">
+              <label for="login-password" class="form-label fw-600" id="login-password-label">Password</label>
+              <div class="input-group">
+                <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-lock-fill text-muted"></i></span>
+                <input type="password" class="form-control border-start-0" id="login-password" name="password"
+                       placeholder="Enter your password" autocomplete="current-password" required>
+                <button type="button" class="btn btn-light border-start-0" id="toggle-pw" aria-label="Show password">
+                  <i class="bi bi-eye-fill"></i>
+                </button>
+              </div>
             </div>
-            <div id="login-error" class="alert alert-danger py-2 small d-none"></div>
-            <div id="login-prefill-hint" class="alert alert-success py-2 small d-none text-center" dir="rtl" lang="ur">یوزر نیم اور پاس ورڈ خود بخود بھر دیے گئے ہیں۔ بس لاگ ان دبائیں</div>
-            <button type="submit" class="btn btn-primary btn-lg w-100" id="login-btn">Sign in</button>
+
+            <!-- Remember Me & Help -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="login-remember" name="remember">
+                <label class="form-check-label" for="login-remember" id="remember-text">Remember me</label>
+              </div>
+              <a href="#" class="text-primary text-decoration-none small">Need help?</a>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold mb-3" id="login-btn">
+              <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+            </button>
           </form>
-          <div class="text-center small text-body-secondary mt-3" id="login-conn"></div>
-          <div class="text-center small text-body-secondary mt-2" id="app-version" style="opacity: 0.7;">v1.0.0</div>
+
+          <!-- Status Info -->
+          <div class="text-center small mb-2">
+            <span id="login-conn" class="text-muted"></span>
+          </div>
         </div>
       </div>
-      <div class="login-feats" aria-hidden="true" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; text-align: center;">
-        <div style="padding: 12px; background: var(--bs-primary-bg-subtle); border-radius: 12px;"><div style="font-size: 1.5rem; margin-bottom: 4px;">🌱</div><div style="font-size: 0.85rem; color: var(--bs-body-color);">Batches &amp; expiry</div></div>
-        <div style="padding: 12px; background: var(--bs-warning-bg-subtle); border-radius: 12px;"><div style="font-size: 1.5rem; margin-bottom: 4px;">⏳</div><div style="font-size: 0.85rem; color: var(--bs-body-color);">Sell oldest first</div></div>
-        <div style="padding: 12px; background: var(--bs-success-bg-subtle); border-radius: 12px;"><div style="font-size: 1.5rem; margin-bottom: 4px;">📒</div><div style="font-size: 0.85rem; color: var(--bs-body-color);">Farmer credit</div></div>
-        <div style="padding: 12px; background: var(--bs-info-bg-subtle); border-radius: 12px;"><div style="font-size: 1.5rem; margin-bottom: 4px;">💬</div><div style="font-size: 0.85rem; color: var(--bs-body-color);">WhatsApp</div></div>
+
+      <!-- Features Section -->
+      <div class="login-features">
+        <h3 class="text-center small fw-600 mb-3 text-muted">Why AgriSale POS?</h3>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">🌱</div>
+            <div class="feature-title">Smart Batches</div>
+            <div class="feature-desc">Track batch numbers & expiry dates</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">⏳</div>
+            <div class="feature-title">FEFO Method</div>
+            <div class="feature-desc">Sell oldest stock first</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📒</div>
+            <div class="feature-title">Farmer Credit</div>
+            <div class="feature-desc">Easy credit management</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">💬</div>
+            <div class="feature-title">WhatsApp Ready</div>
+            <div class="feature-desc">Send invoices via WhatsApp</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📱</div>
+            <div class="feature-title">Works Offline</div>
+            <div class="feature-desc">No internet? No problem!</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🌍</div>
+            <div class="feature-title">Bilingual</div>
+            <div class="feature-desc">English + اردو Support</div>
+          </div>
+        </div>
       </div>
-      <div class="login-foot" style="margin-top: 20px; padding: 12px; background: var(--bs-secondary-bg); border-radius: 12px; text-align: center; font-size: 0.85rem;">Internet is required to sign in. After that, the POS works offline.</div>
+
+      <!-- Footer -->
+      <div class="login-footer">
+        <div class="footer-content">
+          <div class="text-center small text-muted mb-2">
+            <i class="bi bi-info-circle me-1"></i>Internet required for first login. Works offline after.
+          </div>
+          <div class="text-center small text-muted">
+            <span id="app-version">v2.3.1</span> • For Pakistan's Agricultural Dealers
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
