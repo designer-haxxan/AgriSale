@@ -1,4 +1,5 @@
-/* AgriSale theme: fields, sprouts and soft motion on top of Bootstrap. Loaded after app.css. */
+/* AgriSale theme: fields, sprouts and soft motion on top of Bootstrap. Loaded after app.css.
+   Agricultural focus: Fertilizer, Pesticide, Seeds for Pakistan market */
 :root {
   --ag-green-900: #1b5e20;
   --ag-green-800: #2e7d32;
@@ -7,6 +8,7 @@
   --ag-green-100: #e8f5e9;
   --ag-gold: #ffb300;
   --ag-soil: #6d4c41;
+  --ag-copper: #d4894a;
   --bs-primary: #2e7d32;
   --bs-primary-rgb: 46, 125, 50;
   --bs-link-color: #2e7d32;
@@ -20,6 +22,8 @@
   --bs-success-rgb: 67, 160, 71;
   --bs-focus-ring-color: rgba(46, 125, 50, .25);
   --ease: cubic-bezier(.22, .8, .24, 1);
+  --text-primary: #1a1a1a;
+  --text-secondary: #666;
 }
 [data-bs-theme="dark"] {
   --bs-primary: #66bb6a;

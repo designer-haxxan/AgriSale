@@ -5,6 +5,15 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 html, body { height: 100%; }
+/* Urdu language support */
+html[lang="ur"] { direction: rtl; }
+html[lang="ur"] body { font-family: 'Segoe UI', 'Noto Sans', 'Noto Sans Arabic', sans-serif; }
+html[lang="ur"] .form-control,
+html[lang="ur"] .form-select,
+html[lang="ur"] input[type="text"],
+html[lang="ur"] input[type="email"],
+html[lang="ur"] input[type="password"],
+html[lang="ur"] textarea { direction: rtl; text-align: right; }
 body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; background: var(--bs-tertiary-bg); }
 [data-bs-theme="dark"] body { background: #14171a; }
 button, .btn, a { touch-action: manipulation; }
@@ -264,6 +273,69 @@ button.list-row { width: 100%; background: none; border-left: 0; border-right: 0
 .modal-body .col-12 { width: 100%; padding-left: 0; padding-right: 0; }
 .form-select { text-overflow: ellipsis; }
 .dropdown-item { word-break: break-word; white-space: normal; }
+/* Enhanced visual design - animations and depth */
+.card, .stat-card, .list-card, .quick-action {
+  transition: all 0.3s cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+.card:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+.btn {
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  transition: all 0.2s ease;
+}
+.btn:not(:disabled) { cursor: pointer; }
+.btn-primary, .btn-success, .btn-danger {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+.btn-primary:hover {
+  box-shadow: 0 8px 24px rgba(46, 125, 50, 0.4);
+  transform: translateY(-2px);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+/* Better form visual feedback */
+.form-control, .form-select {
+  border-radius: 10px;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+  font-size: 1rem;
+  letter-spacing: 0.2px;
+}
+.form-control:focus, .form-select:focus {
+  box-shadow: 0 0 0 0.3rem rgba(46, 125, 50, 0.15);
+  border-color: #2e7d32;
+  transform: scale(1.01);
+}
+/* Better input labels */
+.form-label {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.4rem;
+}
+[data-bs-theme="dark"] .form-label {
+  color: #e8f5e9;
+}
+/* Improved badges and pills */
+.badge, .badge-pill {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 0.5rem 0.8rem;
+  border-radius: 20px;
+}
+/* Better table styling */
+.table { font-size: 0.95rem; }
+.table th {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: rgba(46, 125, 50, 0.05);
+  border-bottom: 2px solid #2e7d32;
+}
+.table td { padding: 0.8rem 0.6rem; }
 /* Mobile optimizations */
 @media (max-width: 576px) {
   :root { --bottomnav-h: 56px; }
