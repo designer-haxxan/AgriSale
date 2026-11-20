@@ -17,14 +17,10 @@ export async function editAccount(acc = null) {
     title: acc ? `Edit account` : 'New account',
     body: `<div class="row g-2">
       <div class="col-12"><label class="form-label">Type</label><select name="type" class="form-select" ${a.system ? 'disabled' : ''}>${UI.options(Object.entries(Posting.ACCOUNT_TYPES).filter(([k]) => a.system || k !== 'equity').map(([id, name]) => ({ id, name })), a.type)}</select></div>
-      <div class="col-12 bank-fields" style="${isBankType ? '' : 'display:none'}">
-        <div class="row g-2">
-          <div class="col-12"><label class="form-label">Bank Name *</label><input name="bankName" class="form-control" value="${esc(a.bankName || '')}" required></div>
-          <div class="col-12"><label class="form-label">Account Title *</label><input name="accountTitle" class="form-control" value="${esc(a.accountTitle || '')}" required></div>
-          <div class="col-12"><label class="form-label">Branch (Optional)</label><input name="branch" class="form-control" value="${esc(a.branch || '')}"></div>
-        </div>
-      </div>
-      <div class="col-12 other-name" style="${isBankType ? 'display:none' : ''}"><label class="form-label">Name *</label><input name="name" class="form-control" value="${esc(a.name)}" ${a.system ? 'readonly' : ''} required></div>
+      <div class="col-12 bank-name" ${!isBankType ? 'style="display:none"' : ''}><label class="form-label">Bank Name *</label><input name="bankName" class="form-control" value="${esc(a.bankName || '')}" required></div>
+      <div class="col-12 account-title" ${!isBankType ? 'style="display:none"' : ''}><label class="form-label">Account Title *</label><input name="accountTitle" class="form-control" value="${esc(a.accountTitle || '')}" required></div>
+      <div class="col-12 branch" ${!isBankType ? 'style="display:none"' : ''}><label class="form-label">Branch (Optional)</label><input name="branch" class="form-control" value="${esc(a.branch || '')}"></div>
+      <div class="col-12 other-name" ${isBankType ? 'style="display:none"' : ''}><label class="form-label">Name *</label><input name="name" class="form-control" value="${esc(a.name)}" ${a.system ? 'readonly' : ''} required></div>
       <div class="col-6 ob"><label class="form-label">Opening balance</label><input name="openingBalance" class="form-control" inputmode="decimal" value="${a.openingBalance || ''}" placeholder="0"></div>
       <div class="col-6 ob"><label class="form-label">As of date</label><input type="date" name="openingDate" class="form-control" value="${esc(a.openingDate || today())}"></div>
       <div class="col-12"><label class="form-label">Note</label><input name="note" class="form-control" value="${esc(a.note)}"></div>
@@ -34,8 +30,8 @@ export async function editAccount(acc = null) {
       const sync = () => {
         const t = $m.find('[name=type]').val();
         const isBankType = t === 'bank';
-        $m.find('.bank-fields').toggleClass('d-none', !isBankType);
-        $m.find('.other-name').toggleClass('d-none', isBankType);
+        $m.find('.bank-name, .account-title, .branch').toggle(isBankType);
+        $m.find('.other-name').toggle(!isBankType);
         $m.find('.ob').toggleClass('d-none', ['income', 'expense'].includes(t) || a.id === 'equity');
       };
       $m.on('change', '[name=type]', sync);
