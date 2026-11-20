@@ -489,36 +489,21 @@ export async function deleteDocument(kind, id) {
   await idb.write(stores, async (t) => {
     const d = await t.get(def.store, id);
     if (!d) throw new AppError('Document not found.');
-    console.log(`Permanently deleting ${kind}: ${d.number}`);
-
-    // Delete all returns for this document first
+    // Returns first (they depend on this document's stock), each restoring its own stock and ledger effects.
     if (def.returns) {
-      const rets = await t.getAllByIndex(def.returns, def.fk, id);
-      for (const ret of rets) {
-        // Delete return items
-        if (def.items) await t.deleteByIndex(def.items, 'docId', ret.id);
-        // Delete entries for return
-        const returnEntries = await t.getAllByIndex('entries', 'txnId', ret.id);
-        for (const e of returnEntries) await t.delete('entries', e.id);
-        // Delete return
+      for (const ret of await t.getAllByIndex(def.returns, def.fk, id)) {
+        await revertDoc(t, ctx, ret.id);
         await t.delete(def.returns, ret.id);
       }
     }
-
-    // Delete all entries for this document
-    const entries = await t.getAllByIndex('entries', 'txnId', id);
-    for (const e of entries) await t.delete('entries', e.id);
-
-    // Delete all items in document
+    // Restores stock/batches and removes stock moves and ledger entries, then the document itself.
+    await revertDoc(t, ctx, id);
     if (def.items) await t.deleteByIndex(def.items, def.fk, id);
-
-    // Delete the document itself
     await t.delete(def.store, id);
 
     if (def.party && d[def.party[1]]) ctx.parties.push([def.party[0], d[def.party[1]]]);
     if (kind === 'voucher') for (const a of [d.accountId, d.counterAccountId]) { const pa = parseAccount(a); if (pa.kind !== 'accounts') ctx.parties.push([pa.kind, pa.id]); }
     await audit(t, kind + '_deleted_permanently', { number: d.number });
-    console.log(`${kind} ${d.number} permanently deleted`);
   });
   await finish(ctx);
   return 'deleted';

@@ -389,7 +389,7 @@ async function checkout() {
       afterSave(doc);
     } catch (err) {
       console.error('Payment error:', err);
-      $m.find('.co-error').text(err.message || String(err)).removeClass('d-none');
+      $m.find('.co-error').text(err.message || String(err)).removeClass('d-none').get(0)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       $b.prop('disabled', false).html(`<i class="bi bi-check2-circle me-1"></i>${sale ? t('completeSale') : t('savePurchase')}`);
     } finally { busy = false; }
   });

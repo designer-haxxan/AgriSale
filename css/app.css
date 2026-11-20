@@ -6,14 +6,7 @@
 }
 html, body { height: 100%; }
 /* Urdu language support */
-html[lang="ur"] { direction: rtl; }
-html[lang="ur"] body { font-family: 'Segoe UI', 'Noto Sans', 'Noto Sans Arabic', sans-serif; }
-html[lang="ur"] .form-control,
-html[lang="ur"] .form-select,
-html[lang="ur"] input[type="text"],
-html[lang="ur"] input[type="email"],
-html[lang="ur"] input[type="password"],
-html[lang="ur"] textarea { direction: rtl; text-align: right; }
+
 body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; background: var(--bs-tertiary-bg); }
 [data-bs-theme="dark"] body { background: #14171a; }
 button, .btn, a { touch-action: manipulation; }
@@ -373,7 +366,7 @@ body.focus-mode #content { padding-bottom: 0; }
 #loading-overlay.d-none { display: none !important; }
 .toast-container { z-index: 2600; }
 .dropdown { position: relative; overflow: visible; }
-.dropdown-menu { z-index: 2050 !important; position: relative; }
+.dropdown-menu { z-index: 2050 !important; }
 .dropdown-toggle::after { z-index: 2050; }
 .pos-meta { position: relative; overflow: visible; }
 .page-header { overflow: visible; }

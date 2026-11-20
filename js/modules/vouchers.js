@@ -136,7 +136,7 @@ async function renderDetail(el, id) {
   const cp = Posting.parseAccount(v.counterAccountId);
   const counterLink = cp.kind === 'accounts' ? (Auth.can('account.manage') ? `#/accounts/${encodeURIComponent(v.counterAccountId)}` : null) : `#/${cp.kind}/${encodeURIComponent(cp.id)}`;
   $el.html(UI.pageHeader(v.number, `${cp.kind !== 'accounts' && v.status !== 'void' ? '<button class="btn btn-success btn-sm btn-wa"><i class="bi bi-whatsapp"></i><span class="d-none d-sm-inline"> WhatsApp</span></button>' : ''}<button class="btn btn-light btn-sm btn-print"><i class="bi bi-printer"></i> Print</button>
-      ${v.status !== 'void' && Auth.can('voucher.void') ? `<button class="btn btn-outline-danger btn-sm btn-void"><i class="bi bi-x-circle"></i> Void</button>` : ''}`, '#/vouchers') + `
+      ${v.status !== 'void' && Auth.can('voucher.void') ? `<button class="btn btn-outline-danger btn-sm btn-void"><i class="bi bi-trash"></i> Delete</button>` : ''}`, '#/vouchers') + `
     ${v.status === 'void' ? `<div class="alert alert-danger">Voided ${fmtDateTime(v.voidedAt)} by ${esc(v.voidedBy)}${v.voidReason ? ': ' + esc(v.voidReason) : ''}</div>` : ''}
     <div class="card mb-3"><div class="card-body">
       <div class="d-flex align-items-center gap-3 mb-3"><i class="bi bi-${icon} text-${color} display-6"></i><div><div class="text-body-secondary small">${{ receipt: 'Money received', payment: 'Payment made', transfer: 'Transfer' }[v.type]}</div><div class="h4 mb-0 money">${money(v.amount)}</div></div></div>
@@ -152,8 +152,8 @@ async function renderDetail(el, id) {
   $el.on('click', '.btn-print', () => Printer.printDocument('voucher', v));
   $el.on('click', '.btn-wa', async () => (await import('../services/whatsapp.js')).shareVoucher(v));
   $el.on('click', '.btn-void', async () => {
-    if (!await UI.confirmDialog(`Void ${v.number}? Its ledger entries will be reversed. This cannot be undone.`, { okLabel: 'Void', okClass: 'btn-danger' })) return;
-    try { await Posting.voidDocument('voucher', v.id); UI.toast('Voucher voided'); renderDetail(el, id); } catch (e) { UI.toastError(e); }
+    if (!await UI.confirmDialog(`Delete ${v.number} permanently? Its ledger entries will be removed. This cannot be undone.`, { okLabel: 'Delete permanently', okClass: 'btn-danger' })) return;
+    try { await Posting.deleteDocument('voucher', v.id); UI.toast(`✅ ${v.number} deleted permanently`); location.hash = '#/vouchers'; } catch (e) { UI.toastError(e); }
   });
 }
 

@@ -1,11 +1,11 @@
 /* Service worker: precaches the app shell and CDN libraries so the POS loads fully offline.
    Bump VERSION whenever any cached file changes so clients pick up the update. */
-const VERSION = 'agrisale-v2.3.2';
+const VERSION = 'agrisale-v2.4.1';
 const SHELL = [
-  './', './index.html', './manifest.json', './css/app.css', './css/theme.css',
+  './', './index.html', './manifest.json', './css/app.css', './css/theme.css', './css/redesign.css',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
-  './js/app.js', './js/config.js', './js/prefill.js',
-  './js/core/fx.js', './js/core/settings.js', './js/core/ui.js', './js/core/utils.js', './js/core/views.js',
+  './js/app.js', './js/config.js', './js/prefill.js', './js/lang-boot.js',
+  './js/core/fx.js', './js/core/i18n.js', './js/core/lang.js', './js/core/ur-dict.js', './js/core/settings.js', './js/core/ui.js', './js/core/utils.js', './js/core/views.js',
   './js/db/idb.js', './js/db/schema.js', './js/db/batches.js',
   './js/modules/accounts.js', './js/modules/backup.js', './js/modules/dashboard.js', './js/modules/documents.js',
   './js/modules/parties.js', './js/modules/pos.js', './js/modules/products.js', './js/modules/settings.js', './js/modules/stock.js', './js/modules/vouchers.js', './js/modules/whatsapp.js',
@@ -15,6 +15,9 @@ const SHELL = [
 ];
 const CDN = [
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css',
+  'https://cdn.jsdelivr.net/npm/@fontsource/noto-nastaliq-urdu@5.2.8/arabic-400.css',
+  'https://cdn.jsdelivr.net/npm/@fontsource/noto-nastaliq-urdu@5.2.8/arabic-700.css',
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
   'https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js',

@@ -1,5 +1,7 @@
 // Small, dependency-free helpers shared by all modules.
 
+// Locale for dates: Urdu names with Latin digits in Urdu mode, browser default otherwise.
+export const dateLocale = () => { try { return JSON.parse(localStorage.getItem('pos.settings') || '{}').language === 'ur' ? 'ur-PK-u-nu-latn' : undefined; } catch { return undefined; } };
 export const uuid = () =>
   (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (crypto.getRandomValues(new Uint8Array(1))[0] & 15);
@@ -25,14 +27,14 @@ export function monthStart(dateStr = today()) { return dateStr.slice(0, 8) + '01
 export function fmtDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr);
-  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' });
 }
 export function fmtDateTime(iso) {
   if (!iso) return '';
-  return new Date(iso).toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 export function fmtTime(iso) {
-  return iso ? new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
+  return iso ? new Date(iso).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }) : '';
 }
 
 const moneyFmt = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

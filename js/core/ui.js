@@ -60,7 +60,7 @@ export function formModal({ title, body, submitLabel = 'Save', submitClass = 'bt
         if (r !== undefined && r !== false) { result = r; m.close(); }
       } catch (err) {
         console.warn(err);
-        m.$el.find('.form-error').text(err.message || String(err)).removeClass('d-none');
+        m.$el.find('.form-error').text(err.message || String(err)).removeClass('d-none').get(0)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       } finally { busy = false; $btn.prop('disabled', false); }
     };
     $f.on('submit', submit);

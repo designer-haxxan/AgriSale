@@ -2,6 +2,7 @@
 import { CONFIG } from './config.js';
 import { applyTheme, getSettings, saveSettings } from './core/settings.js';
 import { t } from './core/i18n.js';
+import { initLang } from './core/lang.js';
 import * as UI from './core/ui.js';
 import { esc } from './core/utils.js';
 import { openDB } from './db/idb.js';
@@ -124,7 +125,7 @@ function buildMenu() {
     const translatedSection = t(sec.toLowerCase()) || sectionMap[sec] || sec;
     if (sec !== section) { section = sec; html += `<div class="nav-section">${esc(translatedSection)}</div>`; }
     // Use proper case for titles - capitalize first letter of each word
-    const titleForDisplay = lang === 'ur' ? (t(titleKey.replace(/\s+/g, '').toLowerCase()) || titleKey) : titleKey;
+    const titleForDisplay = titleKey;
     html += `<a class="nav-link" href="#/${name}" data-route="${name}"><i class="bi bi-${icon}"></i><span class="nav-text">${esc(titleForDisplay)}</span></a>`;
   }
   $('.nav-menu').html(html);
@@ -208,6 +209,7 @@ function checkExpiry() {
 }
 
 // Debug logging
+initLang();
 console.log('AgriSale POS v' + CONFIG.APP_VERSION + ' initializing...');
 
 function showLogin(reason = '') {
@@ -251,10 +253,8 @@ $('#login-form').on('submit', async (e) => {
 });
 
 $('#login-lang-toggle').on('click', function () {
-  const currentLang = getSettings().language || 'en';
-  const newLang = currentLang === 'en' ? 'ur' : 'en';
-  saveSettings({ language: newLang });
-  updateLoginUI();
+  saveSettings({ language: (getSettings().language || 'en') === 'en' ? 'ur' : 'en' });
+  location.reload();
 });
 $('#toggle-pw').on('click', () => {
   const $i = $('#login-password'); const show = $i.attr('type') === 'password';
@@ -263,22 +263,9 @@ $('#toggle-pw').on('click', () => {
 });
 $('#logout-btn').on('click', () => doLogout(false));
 $('#lang-toggle').on('click', function () {
-  const currentLang = getSettings().language || 'en';
-  const newLang = currentLang === 'en' ? 'ur' : 'en';
+  const newLang = (getSettings().language || 'en') === 'en' ? 'ur' : 'en';
   saveSettings({ language: newLang });
-
-  // Update direction and language attributes
-  $('#html-root').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
-  $('html').attr('lang', newLang === 'ur' ? 'ur' : 'en').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
-
-  // Update language label
-  $('#lang-label').text(newLang === 'en' ? 'اردو' : 'EN').attr('dir', newLang === 'ur' ? 'rtl' : 'ltr');
-
-  // Force rebuild of menu with new language
-  buildMenu();
-
-  UI.toast(`Language changed to ${newLang === 'en' ? 'English' : 'Urdu'}. Refreshing...`, 'info');
-  setTimeout(() => location.reload(), 2000);
+  location.reload();
 });
 $('#install-btn').on('click', promptInstall);
 

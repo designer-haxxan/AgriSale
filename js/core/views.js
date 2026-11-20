@@ -1,5 +1,5 @@
 // Reusable view fragments: document links, ledger tables, date filters, balance formatting.
-import { esc, fmtNum, fmtDate, today, monthStart } from './utils.js';
+import { esc, fmtNum, fmtDate, today, monthStart, dateLocale } from './utils.js';
 import { getSettings } from './settings.js';
 
 export const cur = () => getSettings().currency;
@@ -106,7 +106,7 @@ export function expiryState(expiry) {
 export function fmtExpiry(expiry) {
   if (!expiry) return 'No expiry';
   const d = new Date(expiry + 'T00:00:00');
-  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' });
 }
 export function expiryBadge(expiry, { short = false } = {}) {
   const st = expiryState(expiry);

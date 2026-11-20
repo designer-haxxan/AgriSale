@@ -224,15 +224,15 @@ async function renderAdjustment(el, id) {
   const $el = $(el).off();
   const a = await idb.get('adjustments', id);
   if (!a) { $el.html(UI.pageHeader('Adjustment', '', '#/stock/adjustments') + UI.emptyState('Not found', 'x-circle')); return; }
-  $el.html(UI.pageHeader(a.number, a.status !== 'void' && Auth.can('stock.adjust') ? '<button class="btn btn-outline-danger btn-sm btn-void"><i class="bi bi-x-circle"></i> Void</button>' : '', '#/stock/adjustments') + `
+  $el.html(UI.pageHeader(a.number, a.status !== 'void' && Auth.can('stock.adjust') ? '<button class="btn btn-outline-danger btn-sm btn-void"><i class="bi bi-trash"></i> Delete</button>' : '', '#/stock/adjustments') + `
     ${a.status === 'void' ? `<div class="alert alert-danger">Voided ${fmtDateTime(a.voidedAt)} by ${esc(a.voidedBy)}</div>` : ''}
     <div class="card"><div class="card-body"><div class="mb-2">${fmtDate(a.date)} · <b>${esc(a.reason)}</b>${a.note ? ' · ' + esc(a.note) : ''}</div>
     <table class="table table-sm table-report"><thead><tr><th>Product</th><th class="num">Before</th><th class="num">Change</th><th class="num">Value</th></tr></thead>
     <tbody>${a.items.map((i) => `<tr><td><a href="#/stock/${encodeURIComponent(i.productId)}">${esc(i.name)}</a>${(i.batches || []).length ? `<div class="small text-body-secondary">${i.batches.map((b) => `Batch ${esc(b.batchNo)}${b.expiry ? ' exp ' + esc(fmtExpiry(b.expiry)) : ''}: ${fmtQty(b.qty)}`).join('; ')}</div>` : ''}</td><td class="num">${fmtQty(i.before)}</td><td class="num ${i.qty < 0 ? 'text-danger' : 'text-success'}">${i.qty > 0 ? '+' : ''}${fmtQty(i.qty)}</td><td class="num">${fmtNum(i.qty * i.cost)}</td></tr>`).join('')}</tbody></table>
     <div class="small text-body-secondary">By ${esc(a.userName)} · ${fmtDateTime(a.createdAt)}</div></div></div>`);
   $el.on('click', '.btn-void', async () => {
-    if (!await UI.confirmDialog(`Void ${a.number}? Stock changes will be reversed.`, { okLabel: 'Void', okClass: 'btn-danger' })) return;
-    try { await Posting.voidDocument('adjustment', id); UI.toast('Adjustment voided'); renderAdjustment(el, id); } catch (e) { UI.toastError(e); }
+    if (!await UI.confirmDialog(`Delete ${a.number} permanently? Stock changes will be reversed. This cannot be undone.`, { okLabel: 'Delete permanently', okClass: 'btn-danger' })) return;
+    try { await Posting.deleteDocument('adjustment', id); UI.toast(`✅ ${a.number} deleted permanently`); location.hash = '#/stock/adjustments'; } catch (e) { UI.toastError(e); }
   });
 }
 

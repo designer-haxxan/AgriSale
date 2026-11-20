@@ -54,10 +54,10 @@ export default {
     const backupDays = lastBackup ? Math.floor((Date.now() - new Date(lastBackup)) / 86400000) : null;
     const stat = (label, value, icon, color, href = null) => `<div class="col-6 col-md-4 col-xl-3"><${href ? `a href="${href}"` : 'div'} class="card stat-card h-100 text-decoration-none"><div class="card-body py-2 px-3">
       <div class="d-flex justify-content-between"><div class="stat-label">${label}</div><i class="bi bi-${icon} text-${color}"></i></div><div class="stat-value money">${value}</div></div></${href ? 'a' : 'div'}></div>`;
-    const qa = (href, icon, label, perm) => (!perm || Auth.can(perm)) ? `<div class="col-4 col-md-2"><a class="quick-action" href="${href}"><i class="bi bi-${icon}"></i>${label}</a></div>` : '';
+    const qa = (href, icon, label, perm) => (!perm || Auth.can(perm)) ? `<div class="col-6 col-md-3"><a class="quick-action" href="${href}"><i class="bi bi-${icon}"></i>${label}</a></div>` : '';
     $el.html(`
       <div class="hero">
-        <div class="hero-hi">${new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+        <div class="hero-hi">${new Date().toLocaleDateString(getSettings().language === 'ur' ? 'ur-PK-u-nu-latn' : undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
         <h1>${new Date().getHours() < 12 ? t('goodMorning') : new Date().getHours() < 17 ? t('goodAfternoon') : t('goodEvening')}, ${esc(u.name.split(' ')[0])} 🌾</h1>
         <div class="hero-sub">${t('todaysSales')}</div>
         <div class="hero-sales money">${money(f.sales)}</div>
@@ -71,7 +71,7 @@ export default {
       </div>
       ${!navigator.onLine ? `<div class="alert alert-secondary py-2 small"><i class="bi bi-wifi-off me-1"></i>${t('youAreOffline')}</div>` : ''}
       ${Auth.can('backup.export') && (backupDays === null || backupDays >= 7) ? `<div class="alert alert-warning py-2 small d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle"></i><div class="flex-grow-1">${backupDays === null ? t('noBackupMade') : `${t('lastBackupWas')} ${backupDays} ${t('daysAgo')}`} ${t('yourDataOnly')}</div><a class="btn btn-sm btn-warning" href="#/backup">${t('backUp')}</a></div>` : ''}
-      <div class="row g-2 mb-3">
+      <div class="row qa-grid mb-3">
         ${qa('#/stock', 'box-seam', t('stock'), 'product.manage')}${qa('#/vouchers', 'receipt-cutoff', t('expenses'), 'voucher.create')}
         ${qa('#/purchases', 'bag', `${t('bills')} (${f.purchasesCount})`, 'purchase.manage')}${qa('#/pos', 'cart-plus', t('newSale'), 'sale.create')}
         ${qa('#/vouchers', 'cash-coin', t('cashBook'), 'voucher.create')}${qa('#/customers', 'people', t('customers'))}
