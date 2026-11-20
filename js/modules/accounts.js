@@ -35,9 +35,14 @@ async function renderList(el) {
   const $el = $(el);
   $el.html(UI.pageHeader('Accounts', `<a class="btn btn-light btn-sm" href="#/vouchers"><i class="bi bi-cash-coin"></i> Cash book</a><button class="btn btn-primary btn-sm btn-add"><i class="bi bi-plus-lg"></i> Add</button>`) + '<div class="groups"></div>');
   const load = async () => {
-    const [accs, bal] = await Promise.all([idb.getAll('accounts'), Posting.allBalances()]);
+    const [accs, bal, customers, suppliers] = await Promise.all([idb.getAll('accounts'), Posting.allBalances(), idb.getAll('customers'), idb.getAll('suppliers')]);
+    const custMap = new Map(customers.filter((c) => c.active).map((c) => [c.id, c]));
+    const suppMap = new Map(suppliers.filter((s) => s.active).map((s) => [s.id, s]));
     let rec = 0; let pay = 0;
-    for (const [id, b] of bal) { if (id.startsWith('C:')) rec += b.balance; else if (id.startsWith('S:')) pay -= b.balance; }
+    for (const [id, b] of bal) {
+      if (id.startsWith('C:') && custMap.has(id.slice(2))) rec += b.balance;
+      else if (id.startsWith('S:') && suppMap.has(id.slice(2))) pay -= b.balance;
+    }
     const groups = Object.entries(Posting.ACCOUNT_TYPES).map(([type, label]) => {
       const list = accs.filter((a) => a.type === type).sort((a, b) => a.name.localeCompare(b.name));
       if (!list.length) return '';
