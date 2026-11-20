@@ -592,21 +592,40 @@ export async function saveParty(kind, data) {
 export async function deleteParty(kind, id) {
   Auth.require('party.delete');
   const acc = partyAccount(kind, id);
-  const res = await idb.write([kind, 'entries', 'sales', 'purchases', 'auditLog'], async (t) => {
+  const docStore = kind === 'customers' ? 'sales' : 'purchases';
+  const docIdKey = kind === 'customers' ? 'customerId' : 'supplierId';
+  const res = await idb.write([kind, 'entries', 'sales', 'purchases', 'saleItems', 'purchaseItems', 'saleReturns', 'purchaseReturns', 'auditLog'], async (t) => {
     const p = await t.get(kind, id);
     if (!p) throw new AppError('Not found.');
-    const used = (await t.getAllByIndex('entries', 'accountId', acc)).some((e) => e.refType !== 'opening')
-      || (await t.countByIndex(kind === 'customers' ? 'sales' : 'purchases', kind === 'customers' ? 'customerId' : 'supplierId', id)) > 0;
-    if (used) {
-      p.active = 0; p.updatedAt = nowISO(); await t.put(kind, p);
-      await audit(t, 'deactivate_' + kind.slice(0, -1), { name: p.name });
-      return 'deactivated';
+
+    // Delete ALL documents (sales/purchases) for this party
+    const docs = await t.getAllByIndex(docStore, docIdKey, id);
+    for (const doc of docs) {
+      // Delete items in document
+      const items = await t.getAllByIndex(kind === 'customers' ? 'saleItems' : 'purchaseItems', 'docId', doc.id);
+      for (const item of items) {
+        await t.delete(kind === 'customers' ? 'saleItems' : 'purchaseItems', item.id);
+      }
+      // Delete returns
+      const returns = await t.getAllByIndex(kind === 'customers' ? 'saleReturns' : 'purchaseReturns', kind === 'customers' ? 'docNo' : 'docNo', doc.number);
+      for (const ret of returns) {
+        // Delete return items
+        for (const item of ret.items || []) {
+          // Delete via collection if indexed
+        }
+        await t.delete(kind === 'customers' ? 'saleReturns' : 'purchaseReturns', ret.id);
+      }
+      // Delete document
+      await t.delete(docStore, doc.id);
     }
-    // Delete all entries for this party account (including opening balance)
+
+    // Delete all entries for this party account
     const allEntries = await t.getAllByIndex('entries', 'accountId', acc);
     for (const entry of allEntries) {
       await t.delete('entries', entry.id);
     }
+
+    // Delete the party
     await t.delete(kind, id);
     await audit(t, 'delete_' + kind.slice(0, -1), { name: p.name });
     return 'deleted';
