@@ -646,9 +646,7 @@ export async function deleteAccount(id) {
     const a = await t.get('accounts', id);
     if (!a) throw new AppError('Account not found.');
     if (a.system) throw new AppError('System accounts cannot be deleted.');
-    const used = (await t.getAllByIndex('entries', 'accountId', id)).some((e) => e.refType !== 'opening');
-    if (used) { a.active = 0; a.updatedAt = nowISO(); await t.put('accounts', a); await audit(t, 'deactivate_account', { name: a.name }); return 'deactivated'; }
-    // Delete all entries for this account (cascade delete)
+    // Delete ALL entries for this account (complete cascade delete)
     const allEntries = await t.getAllByIndex('entries', 'accountId', id);
     for (const entry of allEntries) {
       await t.delete('entries', entry.id);

@@ -79,14 +79,10 @@ async function renderDetail(el, id) {
   bindDateFilter($el, (f, t) => { from = f; to = t; load(); });
   $el.on('click', '.btn-edit', async () => { if (await editAccount(a)) renderDetail(el, id); });
   $el.on('click', '.btn-del', async () => {
-    if (!await UI.confirmDialog(`Delete account "${a.name}"? Accounts with transactions are deactivated instead.`, { okLabel: 'Delete', okClass: 'btn-danger' })) return;
+    if (!await UI.confirmDialog(`Delete account "${a.name}" and ALL transactions permanently? This cannot be undone.`, { okLabel: 'Delete permanently', okClass: 'btn-danger' })) return;
     try {
       const r = await Posting.deleteAccount(id);
-      if (r === 'deleted') {
-        UI.toast('Account deleted successfully', 'success');
-      } else {
-        UI.toast('Account has transactions - marked as inactive instead', 'info');
-      }
+      UI.toast('Account and all transactions deleted permanently', 'success');
       document.dispatchEvent(new CustomEvent('data:changed'));
       await new Promise(resolve => setTimeout(resolve, 500));
       location.hash = '#/accounts';
