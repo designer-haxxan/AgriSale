@@ -641,17 +641,25 @@ export async function saveAccount(data) {
 }
 
 export async function deleteAccount(id) {
-  Auth.require('account.manage');
+  try {
+    Auth.require('account.manage');
+  } catch (e) {
+    throw new AppError('You do not have permission to delete accounts. Required: account.manage');
+  }
   return idb.write(['accounts', 'entries', 'auditLog'], async (t) => {
     const a = await t.get('accounts', id);
     if (!a) throw new AppError('Account not found.');
     if (a.system) throw new AppError('System accounts cannot be deleted.');
+    console.log('Deleting account:', a.name, 'with id:', id);
     // Delete ALL entries for this account (complete cascade delete)
     const allEntries = await t.getAllByIndex('entries', 'accountId', id);
+    console.log('Found', allEntries.length, 'entries to delete');
     for (const entry of allEntries) {
       await t.delete('entries', entry.id);
     }
+    console.log('Deleted all entries, now deleting account');
     await t.delete('accounts', id);
+    console.log('Account deleted successfully');
     await audit(t, 'delete_account', { name: a.name });
     return 'deleted';
   });

@@ -81,12 +81,17 @@ async function renderDetail(el, id) {
   $el.on('click', '.btn-del', async () => {
     if (!await UI.confirmDialog(`Delete account "${a.name}" and ALL transactions permanently? This cannot be undone.`, { okLabel: 'Delete permanently', okClass: 'btn-danger' })) return;
     try {
+      console.log('Starting account deletion for:', id);
       const r = await Posting.deleteAccount(id);
-      UI.toast('Account and all transactions deleted permanently', 'success');
+      console.log('Delete result:', r);
+      UI.toast('✅ Account and all transactions deleted permanently', 'success');
       document.dispatchEvent(new CustomEvent('data:changed'));
       await new Promise(resolve => setTimeout(resolve, 500));
       location.hash = '#/accounts';
-    } catch (e) { UI.toastError(e); }
+    } catch (e) {
+      console.error('Delete error:', e);
+      UI.toastError(e);
+    }
   });
   $el.on('click', '.btn-print', () => printHTML(`<div class="print-report"><h2>${esc(getSettings().business.name)}</h2><div>Account ledger: <b>${esc(a.name)}</b></div><div>Period: ${from} to ${to}</div><br>${ledgerTable(led, { debitNormal: dn })}</div>`, { page: 'A4' }));
 }
